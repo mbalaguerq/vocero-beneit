@@ -1,0 +1,11 @@
+.env
+.tmp*
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+selftest/transcripts/
+selftest-run*.log
+selftest-run*.out
+selftest-final.out

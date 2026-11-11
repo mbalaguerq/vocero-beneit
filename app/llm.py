@@ -1,0 +1,443 @@
+"""Capa LLM: OpenAI chat.completions con tool-calling y extracción tolerante.
+
+Gotchas del brief que se honran aquí:
+- `content` vacío con tool_calls es NORMAL (turno solo-herramientas).
+- Respuesta vacía de verdad (sin content ni tool_calls) o excepción → reintento
+  con backoff (2 reintentos). Agotado → `LlmExhausted` y el turno degrada en
+  silencio + handoff error (Constitución IV).
+- Cada intento tiene tope (`LLM_TIMEOUT_SECONDS`) y el SDK no reintenta por su
+  cuenta: los reintentos son estos, no se multiplican.
+- Los `arguments` de las tools pueden venir malformados: JSON inválido → {}.
+"""
+from __future__ import annotations
+
+import asyncio
+import base64
+import json
+import logging
+from dataclasses import dataclass, field
+from typing import Any, Protocol
+
+from openai import AsyncOpenAI
+
+logger = logging.getLogger("nea.llm")
+
+
+class LlmExhausted(Exception):
+    """El LLM falló todos los reintentos — el turno debe degradar en silencio."""
+
+
+@dataclass
+class ToolCall:
+    id: str
+    name: str
+    arguments: dict[str, Any]
+
+
+@dataclass
+class LlmReply:
+    content: str | None
+    tool_calls: list[ToolCall] = field(default_factory=list)
+
+
+class Llm(Protocol):
+    async def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+    ) -> LlmReply: ...
+
+    async def transcribe(
+        self, data: bytes, mime: str, filename: str = "audio.ogg"
+    ) -> str: ...
+
+
+# Los proveedores compatibles piden el formato aparte del binario. WhatsApp
+# manda notas de voz en OGG/Opus; el resto se deduce del mime y, si no se
+# reconoce, se manda como ogg en vez de fallar antes de intentarlo.
+_FORMATOS = {
+    "audio/ogg": "ogg",
+    "audio/opus": "ogg",
+    "audio/mpeg": "mp3",
+    "audio/mp3": "mp3",
+    "audio/mp4": "m4a",
+    "audio/m4a": "m4a",
+    "audio/x-m4a": "m4a",
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+    "audio/webm": "webm",
+    "audio/flac": "flac",
+    "audio/aac": "aac",
+}
+
+
+def _formato_de_audio(mime: str) -> str:
+    return _FORMATOS.get((mime or "").split(";")[0].strip().lower(), "ogg")
+
+
+# Segundos por intento, el default de LLM_TIMEOUT_SECONDS (ver config.py).
+DEFAULT_TIMEOUT = 45.0
+
+
+class OpenAiLlm:
+    RETRIES = 2  # además del intento inicial
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str,
+        transcribe_model: str = "whisper-1",
+        base_url: str | None = None,
+        default_headers: dict[str, str] | None = None,
+        reasoning_effort: str = "",
+        provider_sort: str = "",
+        timeout: float = DEFAULT_TIMEOUT,
+    ) -> None:
+        # base_url ≠ None → proveedor OpenAI-compatible (p. ej. OpenRouter,
+        # para el bench de modelos del 002). Ojo: la transcripción de audio
+        # es una API de OpenAI — con otro proveedor degrada honesta
+        # (LlmExhausted → fallback), por eso el bench alterno cubre texto.
+        # `default_headers` lo usa el modo multi-organización: cuando quien
+        # piensa es el CRM (y no OpenRouter directo), hay que decirle de qué
+        # organización es cada llamada.
+        #
+        # `timeout` y `max_retries=0` van juntos. Por defecto el SDK espera
+        # hasta 600 s por petición y reintenta dos veces más POR SU CUENTA,
+        # así que cada intento de abajo eran hasta tres peticiones de diez
+        # minutos. Los reintentos son de Nea (RETRIES + backoff en `complete`,
+        # dos intentos en `transcribe`): un timeout es una excepción más, cae
+        # en ese mismo camino y, agotado, termina en `LlmExhausted` → silencio
+        # + handoff `error`, como cualquier otro fallo del proveedor.
+        self._client = AsyncOpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            default_headers=default_headers,
+            timeout=timeout,
+            max_retries=0,
+        )
+        self._model = model
+        self._transcribe_model = transcribe_model
+        # Los dos ajustes de velocidad. Se deciden una vez, aqui, y viajan en
+        # cada llamada; `_extras_ok` los apaga solos si el proveedor se queja.
+        self._reasoning_effort = reasoning_effort.strip()
+        self._provider_sort = provider_sort.strip()
+        self._extras_ok = True
+        # Con proveedor propio (OpenRouter y compañía) no hay endpoint de
+        # transcripción: el audio se manda DENTRO del chat, a un modelo que
+        # sepa oír. Se decide aquí y no en cada llamada para que el camino sea
+        # el mismo durante toda la vida del proceso.
+        self._audio_por_chat = base_url is not None
+        # Contadores de uso (para el bench de costos del 002): tokens reales
+        # reportados por el proveedor, acumulados por instancia.
+        self.usage = {"prompt": 0, "cached": 0, "completion": 0, "llamadas": 0}
+
+    async def transcribe(
+        self, data: bytes, mime: str, filename: str = "audio.ogg"
+    ) -> str:
+        """Audio → texto. Vacío o fallo → LlmExhausted.
+
+        Dos caminos, porque los proveedores no ofrecen lo mismo:
+
+        - **OpenAI**: endpoint propio de transcripción (whisper).
+        - **Compatible** (OpenRouter…): no existe ese endpoint. El audio va
+          codificado DENTRO de un mensaje de chat, a un modelo que acepte
+          audio. Ojo: el modelo que conversa y el que oye no tienen por qué
+          ser el mismo — hoy los GLM, por ejemplo, no oyen.
+        """
+        # Sin modelo que oiga no se intenta siquiera. Mandar el audio al que
+        # conversa devolvería una alucinación con pinta de transcripción, que
+        # es peor que decir que no se pudo: quien la lee no sabe que es falsa.
+        if not self._transcribe_model:
+            raise LlmExhausted(
+                "sin modelo de transcripción configurado — no se transcribe"
+            )
+        if self._audio_por_chat:
+            return await self._transcribir_por_chat(data, mime)
+        last_error: Exception | None = None
+        content_type = (mime or "audio/ogg").split(";")[0].strip()
+        for attempt in range(2):
+            try:
+                resp = await self._client.audio.transcriptions.create(
+                    model=self._transcribe_model,
+                    file=(filename, data, content_type),
+                    language="es",
+                )
+                text = (getattr(resp, "text", None) or "").strip()
+                if text:
+                    return text
+                last_error = ValueError("transcripción vacía")
+                logger.warning("transcribe: texto vacío, intento %d", attempt + 1)
+            except Exception as exc:
+                last_error = exc
+                logger.warning("transcribe: fallo en intento %d: %s", attempt + 1, exc)
+            if attempt == 0:
+                await asyncio.sleep(1.0)
+        raise LlmExhausted(str(last_error))
+
+    async def _transcribir_por_chat(self, data: bytes, mime: str) -> str:
+        """El audio, en base64, dentro de un mensaje de chat.
+
+        Es como transcriben los proveedores compatibles: no hay endpoint de
+        audio, hay modelos que oyen. Se le pide el texto y NADA más — sin esa
+        instrucción, un modelo servicial contesta a lo que dijo el cliente en
+        vez de transcribirlo, y Nea acabaría respondiendo a su propia
+        paráfrasis.
+        """
+        fmt = _formato_de_audio(mime)
+        b64 = base64.b64encode(data).decode()
+        last_error: Exception | None = None
+
+        for attempt in range(2):
+            try:
+                resp = await self._client.chat.completions.create(
+                    model=self._transcribe_model,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": (
+                                        "Transcribe este audio al español. "
+                                        "Responde SOLO con la transcripción "
+                                        "literal, sin comillas, sin comentarios "
+                                        "y sin responder a lo que dice."
+                                    ),
+                                },
+                                {
+                                    "type": "input_audio",
+                                    "input_audio": {"data": b64, "format": fmt},
+                                },
+                            ],
+                        }
+                    ],
+                )
+                text = (resp.choices[0].message.content or "").strip()
+                if text:
+                    return text
+                last_error = ValueError("transcripción vacía")
+                logger.warning("transcribe(chat): vacío, intento %d", attempt + 1)
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "transcribe(chat) con %s: fallo en intento %d: %s",
+                    self._transcribe_model,
+                    attempt + 1,
+                    exc,
+                )
+            if attempt == 0:
+                await asyncio.sleep(1.0)
+        raise LlmExhausted(str(last_error))
+
+    def _extras(self) -> dict[str, Any]:
+        """Los ajustes que no son del contrato de OpenAI.
+
+        Van por `extra_body` a proposito: OpenRouter los entiende y un
+        proveedor que no, los ignora en vez de fallar.
+
+        OJO con `reasoning: {"exclude": true}`: parece lo mismo que "minimal"
+        y no lo es. Oculta el razonamiento de la respuesta pero el modelo lo
+        SIGUE generando - medido en huaraches el 8-sep: 650 tokens y 19.7 s de
+        mediana contra 67 y 7.7 s con "minimal". Que nadie lo "mejore".
+        """
+        if not self._extras_ok:
+            return {}
+        extra: dict[str, Any] = {}
+        if self._reasoning_effort:
+            extra["reasoning"] = {"effort": self._reasoning_effort}
+        if self._provider_sort:
+            extra["provider"] = {"sort": self._provider_sort}
+        return extra
+
+    def _quiza_por_los_extras(self, exc: Exception) -> None:
+        """Si el proveedor se quejo de `reasoning` o `provider`, se apagan.
+
+        Aqui pasan modelos de muchos miembros, no uno solo elegido por
+        nosotros. Bajar el tiempo de respuesta es una optimizacion, y una
+        optimizacion no puede costar la respuesta: al primer reproche este
+        cliente deja de mandarlos y el reintento sale limpio.
+
+        Es pegajoso a proposito -el soporte del modelo no cambia a media vida
+        del proceso- y por organizacion, porque cada una tiene el suyo.
+        """
+        if not self._extras_ok:
+            return
+        texto = str(exc).lower()
+        if "reasoning" in texto or "provider" in texto:
+            self._extras_ok = False
+            logger.warning(
+                "llm: %s no acepta los ajustes de velocidad - se apagan para "
+                "este modelo y se reintenta sin ellos",
+                self._model,
+            )
+
+    async def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+    ) -> LlmReply:
+        last_error: Exception | None = None
+        for attempt in range(self.RETRIES + 1):
+            try:
+                kwargs: dict[str, Any] = {}
+                if tools:
+                    kwargs["tools"] = tools
+                    kwargs["tool_choice"] = "auto"
+                extra = self._extras()
+                if extra:
+                    kwargs["extra_body"] = extra
+                resp = await self._client.chat.completions.create(
+                    model=self._model, messages=messages, **kwargs
+                )
+                u = getattr(resp, "usage", None)
+                if u is not None:
+                    det = getattr(u, "prompt_tokens_details", None)
+                    self.usage["llamadas"] += 1
+                    self.usage["prompt"] += getattr(u, "prompt_tokens", 0) or 0
+                    self.usage["completion"] += getattr(u, "completion_tokens", 0) or 0
+                    self.usage["cached"] += getattr(det, "cached_tokens", 0) or 0
+                reply = self._parse(resp)
+                if reply.content or reply.tool_calls:
+                    return reply
+                last_error = ValueError("respuesta vacía del LLM (sin content ni tools)")
+                logger.warning("llm: respuesta vacía, intento %d", attempt + 1)
+            except Exception as exc:  # red, API, parseo — todo reintenta
+                last_error = exc
+                self._quiza_por_los_extras(exc)
+                logger.warning("llm: fallo en intento %d: %s", attempt + 1, exc)
+            if attempt < self.RETRIES:
+                await asyncio.sleep(2**attempt)  # 1 s, 2 s
+        raise LlmExhausted(str(last_error))
+
+    @staticmethod
+    def _parse(resp: Any) -> LlmReply:
+        """Extracción tolerante: nunca truena por formato inesperado."""
+        choices = getattr(resp, "choices", None) or []
+        if not choices:
+            return LlmReply(content=None)
+        message = getattr(choices[0], "message", None)
+        if message is None:
+            return LlmReply(content=None)
+        content = getattr(message, "content", None)
+        if isinstance(content, str):
+            content = content.strip() or None
+        else:
+            content = None
+        tool_calls: list[ToolCall] = []
+        for tc in getattr(message, "tool_calls", None) or []:
+            fn = getattr(tc, "function", None)
+            name = getattr(fn, "name", None)
+            if not name:
+                continue
+            raw_args = getattr(fn, "arguments", None) or "{}"
+            try:
+                args = json.loads(raw_args)
+                if not isinstance(args, dict):
+                    args = {}
+            except (TypeError, ValueError):
+                logger.warning("llm: arguments malformados en %s — uso {}", name)
+                args = {}
+            tool_calls.append(
+                ToolCall(id=getattr(tc, "id", "") or "", name=name, arguments=args)
+            )
+        return LlmReply(content=content, tool_calls=tool_calls)
+
+
+# 036 — La ruta del proxy del CRM cuando el perfil no la dice.
+RUTA_LLM_DEL_CRM = "/api/bot/llm"
+
+
+class LlmPorElCrm:
+    """El modelo, llamado a través del CRM (spec 036 D6 de vocero-crm).
+
+    Junto a Vocero raíz la llave del modelo vive en Ajustes → IA del CRM, no
+    aquí. `POST {CRM}/api/bot/llm/*` es compatible con OpenAI: le pone esa
+    llave y reenvía el cuerpo tal cual. Nea entra con `CRM_BOT_API_KEY` en
+    `Authorization: Bearer`, que es lo que manda el SDK.
+
+    El modelo lo elige el negocio en el CRM y llega en el perfil (`llm.model`);
+    sin él, `LLM_MODEL`. Por eso este cliente no es un `OpenAiLlm` fijo: en
+    cada llamada mira el perfil —que ya está en caché con su TTL, no es un
+    viaje más al CRM— y usa el `OpenAiLlm` de ESE modelo. Cambiar el modelo en
+    el CRM llega sin reiniciar Nea, como el resto del perfil. Se cachea uno
+    por (modelo, ruta), igual que `RegistroDeOrganizaciones.llm`: cada uno
+    tiene su pool de conexiones y su memoria de `_extras_ok`.
+
+    El modelo que TRANSCRIBE es el de `LLM_TRANSCRIBE_MODEL`, por el mismo
+    proxy: el audio viaja dentro del chat (`_audio_por_chat`).
+
+    Si el CRM no tiene IA (402 `sin_credencial`) o el proveedor no contesta
+    (504), el SDK lo levanta como cualquier otro fallo: reintentos y, agotados,
+    `LlmExhausted` → silencio + handoff `error`. Nada nuevo que cablear.
+    """
+
+    def __init__(
+        self,
+        crm_base_url: str,
+        api_key: str,
+        perfil: Any,
+        *,
+        model: str,
+        transcribe_model: str = "whisper-1",
+        reasoning_effort: str = "",
+        provider_sort: str = "",
+        timeout: float = DEFAULT_TIMEOUT,
+    ) -> None:
+        self._crm = crm_base_url.rstrip("/")
+        self._api_key = api_key
+        self._perfil = perfil  # ProfileProvider (o None en pruebas)
+        self._model = model
+        self._transcribe_model = transcribe_model
+        self._reasoning_effort = reasoning_effort
+        self._provider_sort = provider_sort
+        self._timeout = timeout
+        self._clientes: dict[tuple[str, str], OpenAiLlm] = {}
+
+    async def _eleccion(self) -> tuple[str, str]:
+        """(modelo, base_url) según el perfil vigente.
+
+        Un perfil que no se pudo leer no tumba el turno: se piensa con
+        `LLM_MODEL` por la ruta de siempre, y si el CRM tampoco contesta ahí,
+        es el camino de fallo de siempre.
+        """
+        model: str | None = None
+        path: str | None = None
+        if self._perfil is not None:
+            try:
+                perfil = await self._perfil.get()
+                model = getattr(perfil, "llm_model", None)
+                path = getattr(perfil, "llm_path", None)
+            except Exception as exc:
+                logger.warning("llm por el CRM: sin perfil (%s) — uso LLM_MODEL", exc)
+        return model or self._model, self._crm + (path or RUTA_LLM_DEL_CRM)
+
+    async def cliente(self) -> OpenAiLlm:
+        """El `OpenAiLlm` del modelo que el negocio tiene elegido ahora."""
+        clave = await self._eleccion()
+        cliente = self._clientes.get(clave)
+        if cliente is None:
+            model, base_url = clave
+            cliente = OpenAiLlm(
+                self._api_key,
+                model,
+                transcribe_model=self._transcribe_model,
+                base_url=base_url,
+                reasoning_effort=self._reasoning_effort,
+                provider_sort=self._provider_sort,
+                timeout=self._timeout,
+            )
+            self._clientes[clave] = cliente
+            logger.info("llm por el CRM: pienso con %s", model)
+        return cliente
+
+    async def complete(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+    ) -> LlmReply:
+        return await (await self.cliente()).complete(messages, tools)
+
+    async def transcribe(
+        self, data: bytes, mime: str, filename: str = "audio.ogg"
+    ) -> str:
+        return await (await self.cliente()).transcribe(data, mime, filename)

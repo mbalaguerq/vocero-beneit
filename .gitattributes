@@ -1,0 +1,3 @@
+# Los fixtures del self-test son binarios: sin conversión CRLF (un PDF con
+# offsets xref se corrompe si git le toca los saltos de línea).
+selftest/fixtures/** binary
