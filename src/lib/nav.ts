@@ -28,6 +28,8 @@ export type NavItem = {
   icon: LucideIcon;
   /** Muestra el contador de no leídos (solo la Bandeja). */
   badge?: boolean;
+  /** Enllaços externs (com l'agenda de proves) s'obren en una pestanya nova. */
+  external?: boolean;
 };
 
 export type NavGroup = {
@@ -66,7 +68,7 @@ export function appNavGroups({
   // L'Agenda operativa de Beneït és una aplicació separada. El CRM conserva
   // les peticions i la integració API, però l'entrada visible ha d'obrir
   // l'agenda real i no el calendari intern de demostració de Vocero.
-  if (agenda) trabajo.push({ href: "https://proves.instalabeneit.es/", label: "Agenda", icon: CalendarDays });
+  if (agenda) trabajo.push({ href: "https://proves.instalabeneit.es/", label: "Agenda", icon: CalendarDays, external: true });
 
   const agente: NavItem[] = [];
   // Un miembro del equipo no puede hacer ninguno de los pasos de la guía.
