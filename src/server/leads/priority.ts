@@ -16,8 +16,8 @@ export const PRIORITY_VALUES: readonly PriorityValue[] = ["alta", "media", "baja
 
 export const PRIORITY_LABELS: Record<PriorityValue, string> = {
   alta: "Alta",
-  media: "Media",
-  baja: "Baja",
+  media: "Mitjana",
+  baja: "Baixa",
 };
 
 export function isPriority(v: unknown): v is PriorityValue {
