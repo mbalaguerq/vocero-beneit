@@ -8,9 +8,15 @@ export const dynamic = "force-dynamic";
 
 function textValue(ficha: Record<string, unknown> | null, keys: string[]) {
   if (!ficha) return "";
-  for (const key of keys) {
-    const value = ficha[key];
-    if (typeof value === "string" && value.trim()) return value.trim();
+  const normalize = (value: string) => value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+  const wanted = new Set(keys.map(normalize));
+  for (const [key, rawValue] of Object.entries(ficha)) {
+    if (!wanted.has(normalize(key))) continue;
+    if (typeof rawValue === "string" && rawValue.trim()) return rawValue.trim();
   }
   return "";
 }
@@ -52,7 +58,7 @@ export const POST = withAuth(async (session, req: Request) => {
 
   const ficha = (row.contact.ficha ?? {}) as Record<string, unknown>;
   const address = textValue(ficha, ["adreça", "direcció", "address", "direccion"]);
-  const workType = textValue(ficha, ["tipus de feina", "tipo de trabajo", "workType", "service"]);
+  const workType = textValue(ficha, ["tipus de feina", "tipo de trabajo", "workType", "service", "resultado", "feina", "servei"]);
   const description = textValue(ficha, ["descripció", "descripción", "description", "detalls", "detalles"]);
   if (!address || !workType || !description) {
     return apiError(422, "missing_request_data", "Cal completar adreça, tipus de feina i descripció abans d'enviar-la a l'Agenda.");
