@@ -128,7 +128,10 @@ class TurnoSinCrm(Exception):
 
 
 def _marcas(items: list[Any]) -> list[str]:
-    return [str(w) for w in (getattr(m, "wa_message_id", None) for m in items) if w]
+    return [str(w) for w in (
+        getattr(m, "source_key", None) or getattr(m, "wa_message_id", None)
+        for m in items
+    ) if w]
 
 
 def marca_de_leido(org_id: str, message_id: str) -> str:

@@ -122,6 +122,10 @@ class InboundMessage:
     wa_message_id: str | None
     identity: str
     type: str
+    # Clau estable del CRM quan el missatge no porta wamid. Serveix per
+    # deduplicar reintents del mateix despatx sense confondre'l amb un id de
+    # WhatsApp real.
+    source_key: str | None = None
     text: str | None = None
     referral_headline: str | None = None
     profile_name: str | None = None

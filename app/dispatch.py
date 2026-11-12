@@ -79,9 +79,31 @@ def mensajes_del_despacho(payload: dict[str, Any]) -> list[InboundMessage]:
         if not isinstance(m, dict):
             continue
         mime = m.get("mimeType")
+        wa_id = str(m.get("id")) if m.get("id") else None
+        if wa_id:
+            source_key = wa_id
+        else:
+            # Alguns CRM antics no propaguen el wamid. Conservem una empremta
+            # estable perquè un retry no torni a generar una resposta.
+            source_key = hashlib.sha256(
+                json.dumps(
+                    {
+                        "identity": identity,
+                        "type": m.get("type") or "text",
+                        "text": m.get("text"),
+                        "mediaId": m.get("mediaId"),
+                        "caption": m.get("caption"),
+                        "timestamp": m.get("timestamp") or m.get("createdAt"),
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()
         out.append(
             InboundMessage(
-                wa_message_id=str(m.get("id")) if m.get("id") else None,
+                wa_message_id=wa_id,
+                source_key=source_key,
                 identity=identity,
                 type=str(m.get("type") or "text"),
                 text=m.get("text"),
@@ -268,14 +290,15 @@ async def _procesar(ctx: AppContext, payload: dict[str, Any], *, durable: bool =
     org = organizacion_del_despacho(payload) if ctx.settings.multi_org else None
     org_id = org[0] if org else ""
     leidos = await ctx.store.already_processed(
-        [marca_de_leido(org_id, m.wa_message_id) for m in mensajes if m.wa_message_id]
+        [marca_de_leido(org_id, m.source_key or m.wa_message_id)
+         for m in mensajes if m.source_key or m.wa_message_id]
     )
     if leidos:
         nuevos = [
             m
             for m in mensajes
-            if not m.wa_message_id
-            or marca_de_leido(org_id, m.wa_message_id) not in leidos
+            if not (m.source_key or m.wa_message_id)
+            or marca_de_leido(org_id, m.source_key or m.wa_message_id) not in leidos
         ]
         logger.info(
             "dedup: despacho %s repite %d mensaje(s) que ya leí — quedan %d",
