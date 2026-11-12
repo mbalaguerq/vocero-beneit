@@ -58,10 +58,14 @@ export const POST = withAuth(async (session, req: Request) => {
 
   const ficha = (row.contact.ficha ?? {}) as Record<string, unknown>;
   const address = textValue(ficha, ["adreça", "direcció", "address", "direccion"]);
-  const workType = textValue(ficha, ["tipus de feina", "tipo de trabajo", "workType", "service", "resultado", "feina", "servei"]);
-  const description = textValue(ficha, ["descripció", "descripción", "description", "detalls", "detalles"]);
-  if (!address || !workType || !description) {
-    return apiError(422, "missing_request_data", "Cal completar adreça, tipus de feina i descripció abans d'enviar-la a l'Agenda.");
+  const workType = textValue(ficha, ["tipus de feina", "tipo de trabajo", "workType", "service", "resultado", "feina", "servei"])
+    || row.lead.title?.trim()
+    || "Petició de servei";
+  const description = textValue(ficha, ["descripció", "descripción", "description", "detalls", "detalles"])
+    || row.lead.title?.trim()
+    || workType;
+  if (!address) {
+    return apiError(422, "missing_request_data", "Cal completar l'adreça abans d'enviar-la a l'Agenda.");
   }
 
   const result = await createAgendaServiceRequest(session.organizationId, {
