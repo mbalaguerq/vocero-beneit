@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { MessageSquareText, X } from "lucide-react";
+import { CalendarPlus, MessageSquareText, X } from "lucide-react";
 import type {
   AnuncioDto,
   FichaDto,
@@ -52,6 +52,8 @@ export function LeadDrawer({
   const [anuncio, setAnuncio] = useState<AnuncioDto | null>(null);
   const [monto, setMonto] = useState("");
   const [editandoMonto, setEditandoMonto] = useState(false);
+  const [agendaState, setAgendaState] = useState<"idle" | "sending" | "created" | "error">("idle");
+  const [agendaMessage, setAgendaMessage] = useState("");
 
   const contactId = lead.contact.id;
   const moneda = lead.currency ?? currency;
@@ -102,6 +104,27 @@ export function LeadDrawer({
 
   const montoParseado = monto.trim() ? parseMoneyToCents(monto) : null;
   const montoInvalido = monto.trim().length > 0 && montoParseado === null;
+
+  async function crearPeticióAgenda() {
+    if (!lead.conversationId || agendaState === "sending") return;
+    setAgendaState("sending");
+    setAgendaMessage("");
+    const response = await fetch("/api/agenda/requests", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ leadId: lead.id }),
+    }).catch(() => null);
+    const data = (await response?.json().catch(() => null)) as
+      | { duplicate?: boolean; error?: { message?: string } }
+      | null;
+    if (!response?.ok) {
+      setAgendaState("error");
+      setAgendaMessage(data?.error?.message ?? "No s'ha pogut crear la petició a l'Agenda.");
+      return;
+    }
+    setAgendaState("created");
+    setAgendaMessage(data?.duplicate ? "Aquesta petició ja era a l'Agenda." : "Petició creada a l'Agenda.");
+  }
 
   return (
     <>
@@ -160,6 +183,25 @@ export function LeadDrawer({
               <p className="mt-3 text-xs text-text-3">
                 Encara no hi ha cap conversa amb aquest contacte.
               </p>
+            )}
+
+            {lead.conversationId && (
+              <div className="mt-3">
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  disabled={agendaState === "sending" || agendaState === "created"}
+                  onClick={() => void crearPeticióAgenda()}
+                >
+                  <CalendarPlus className="h-4 w-4" />
+                  {agendaState === "sending" ? "Creant petició…" : agendaState === "created" ? "Petició a l'Agenda" : "Crear petició a l'Agenda"}
+                </Button>
+                {agendaMessage && (
+                  <p className={cn("mt-2 text-xs", agendaState === "error" ? "text-destructive" : "text-text-3")}>
+                    {agendaMessage}
+                  </p>
+                )}
+              </div>
             )}
 
             {anuncio && (
