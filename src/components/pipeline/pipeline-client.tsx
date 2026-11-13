@@ -23,6 +23,7 @@ import { formatTime } from "@/components/inbox/helpers";
 import { StageManager } from "./stage-manager";
 import { stageLabel } from "@/lib/stage-labels";
 import { LossReasonDialog } from "./loss-reason-dialog";
+import { WonResultDialog } from "./won-result-dialog";
 import { AmountDialog } from "./amount-dialog";
 import { PriorityBadge } from "./priority-picker";
 import { LeadDrawer } from "./lead-drawer";
@@ -49,6 +50,11 @@ export function PipelineClient() {
   const [managing, setManaging] = useState(false);
   /** Arrastre hacia una etapa perdida, esperando el motivo. */
   const [pendingLoss, setPendingLoss] = useState<{
+    leadId: string;
+    stageId: string;
+    name: string;
+  } | null>(null);
+  const [pendingWon, setPendingWon] = useState<{
     leadId: string;
     stageId: string;
     name: string;
@@ -112,6 +118,15 @@ export function PipelineClient() {
     void refetch();
   }
 
+  async function moverLeadAmbResultat(lead: BoardLead, stageId: string, result: string, note: string) {
+    await fetch(`/api/contacts/${lead.contact.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ficha: { Resultat: note ? `${result}: ${note}` : result } }),
+    }).catch(() => null);
+    await moverLead(lead.id, stageId);
+  }
+
   async function guardarMonto(leadId: string, cents: number | null) {
     setLeads((prev) =>
       prev.map((l) => (l.id === leadId ? { ...l, amountCents: cents } : l))
@@ -160,6 +175,10 @@ export function PipelineClient() {
       setPendingLoss({ leadId, stageId: overStage, name: lead.contact.name });
       return;
     }
+    if (destino?.kind === "won") {
+      setPendingWon({ leadId, stageId: overStage, name: lead.contact.name });
+      return;
+    }
 
     await moverLead(leadId, overStage);
   }
@@ -175,6 +194,10 @@ export function PipelineClient() {
     const destino = stages.find((s) => s.id === stageId);
     if (destino?.kind === "lost") {
       setPendingLoss({ leadId, stageId, name: lead.contact.name });
+      return;
+    }
+    if (destino?.kind === "won") {
+      setPendingWon({ leadId, stageId, name: lead.contact.name });
       return;
     }
     void moverLead(leadId, stageId);
@@ -269,6 +292,19 @@ export function PipelineClient() {
             const { leadId, stageId } = pendingLoss;
             setPendingLoss(null);
             void moverLead(leadId, stageId, { reason, note });
+          }}
+        />
+      )}
+
+      {pendingWon && (
+        <WonResultDialog
+          leadName={pendingWon.name}
+          onCancel={() => setPendingWon(null)}
+          onConfirm={(result, note) => {
+            const lead = leads.find((l) => l.id === pendingWon.leadId);
+            const stageId = pendingWon.stageId;
+            setPendingWon(null);
+            if (lead) void moverLeadAmbResultat(lead, stageId, result, note);
           }}
         />
       )}
