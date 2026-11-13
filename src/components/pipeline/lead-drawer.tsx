@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarPlus, MessageSquareText, X } from "lucide-react";
+import { Archive, CalendarPlus, MessageSquareText, X } from "lucide-react";
 import type {
   AnuncioDto,
   FichaDto,
@@ -36,6 +36,7 @@ export function LeadDrawer({
   onMoveStage,
   onAmount,
   onPriority,
+  onArchive,
 }: {
   lead: BoardLead;
   stages: StageDto[];
@@ -46,6 +47,7 @@ export function LeadDrawer({
   onMoveStage: (stageId: string) => void;
   onAmount: (cents: number | null) => void;
   onPriority: (value: PriorityValue | null) => void;
+  onArchive: () => void;
 }) {
   const [ficha, setFicha] = useState<FichaDto>({});
   // 018: de qué anuncio llegó; null si escribió por su cuenta.
@@ -56,7 +58,7 @@ export function LeadDrawer({
   const [agendaMessage, setAgendaMessage] = useState("");
 
   const contactId = lead.contact.id;
-  const moneda = lead.currency ?? currency;
+  const moneda = currency;
 
   const cargarFicha = useCallback(async () => {
     const detail = await fetch(`/api/contacts/${contactId}`)
@@ -209,6 +211,10 @@ export function LeadDrawer({
                 <AnuncioOrigen anuncio={anuncio} />
               </div>
             )}
+
+            <Button className="mt-3 w-full" variant="ghost" onClick={onArchive}>
+              <Archive className="h-4 w-4" /> Retira de l'embut
+            </Button>
           </section>
 
           {/* Cuánto */}

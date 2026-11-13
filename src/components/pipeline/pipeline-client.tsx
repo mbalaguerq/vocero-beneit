@@ -41,7 +41,9 @@ export type BoardLead = {
 
 export function PipelineClient() {
   const [stages, setStages] = useState<StageDto[]>([]);
-  const [currency, setCurrency] = useState("EUR");
+  // Instal·lacions Beneït treballa en euros. Ignorem valors antics de la
+  // demo (MXN) perquè no contaminin la interfície ni els nous registres.
+  const [currency] = useState("EUR");
   const [leads, setLeads] = useState<BoardLead[]>([]);
   const [activeLead, setActiveLead] = useState<BoardLead | null>(null);
   const [managing, setManaging] = useState(false);
@@ -73,7 +75,6 @@ export function PipelineClient() {
       leads: BoardLead[];
       currency?: string;
     };
-    if (data.currency) setCurrency(data.currency);
     setStages(data.stages);
     setLeads(data.leads);
   }, []);
@@ -119,7 +120,7 @@ export function PipelineClient() {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       // Sin `stageId`: esto NO mueve la tarjeta, solo escribe el importe.
-      body: JSON.stringify({ amountCents: cents }),
+      body: JSON.stringify({ amountCents: cents, currency: "EUR" }),
     }).catch(() => null);
     void refetch();
   }
@@ -134,6 +135,14 @@ export function PipelineClient() {
       body: JSON.stringify({ priority }),
     }).catch(() => null);
     void refetch();
+  }
+
+  async function retirarDeLembut(leadId: string) {
+    if (!window.confirm("Retirar aquesta petició de l'embut? El contacte i l'historial es conservaran.")) return;
+    const response = await fetch(`/api/pipeline/leads/${leadId}`, { method: "DELETE" }).catch(() => null);
+    if (!response?.ok) return;
+    setAbiertoId(null);
+    await refetch();
   }
 
   async function onDragEnd(event: DragEndEvent) {
@@ -229,13 +238,14 @@ export function PipelineClient() {
           onMoveStage={(stageId) => moverDesdeCajon(abierto.id, stageId)}
           onAmount={(cents) => void guardarMonto(abierto.id, cents)}
           onPriority={(p) => void guardarPrioridad(abierto.id, p)}
+          onArchive={() => void retirarDeLembut(abierto.id)}
         />
       )}
 
       {editandoMonto && (
         <AmountDialog
           leadName={editandoMonto.contact.name}
-          currency={editandoMonto.currency ?? currency}
+          currency={currency}
           amountCents={editandoMonto.amountCents}
           priority={editandoMonto.priority}
           onPriorityChange={(p) => {
@@ -475,12 +485,12 @@ function LeadCard({
         >
           {lead.amountCents === null
             ? "+ import"
-            : formatMoneyCents(lead.amountCents, lead.currency ?? currency)}
+            : formatMoneyCents(lead.amountCents, currency)}
         </button>
       )}
       {overlay && lead.amountCents !== null && (
         <p className="mt-1.5 text-right text-xs font-semibold tabular-nums">
-          {formatMoneyCents(lead.amountCents, lead.currency ?? currency)}
+          {formatMoneyCents(lead.amountCents, currency)}
         </p>
       )}
     </div>

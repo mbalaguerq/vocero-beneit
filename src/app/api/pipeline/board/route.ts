@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { withAuth } from "@/lib/api";
 import { getDb, schema } from "@/lib/db";
 import { scoped } from "@/lib/db/tenant";
@@ -31,7 +31,7 @@ export const GET = withAuth(async (session) => {
         eq(schema.conversation.isTest, false)
       )
     )
-    .where(scoped(schema.lead.organizationId, session.organizationId))
+    .where(and(scoped(schema.lead.organizationId, session.organizationId), isNull(schema.lead.archivedAt)))
     .orderBy(asc(schema.lead.position));
 
   // La moneda del negocio viaja con el tablero: el cliente suma sus columnas y

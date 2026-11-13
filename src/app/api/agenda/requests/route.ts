@@ -1,8 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { apiError, withAuth } from "@/lib/api";
 import { getDb, schema } from "@/lib/db";
 import { scoped } from "@/lib/db/tenant";
 import { createAgendaServiceRequest } from "@/server/agenda/requests";
+import { upsertFicha } from "@/server/bot/ficha";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,15 @@ function textValue(ficha: Record<string, unknown> | null, keys: string[]) {
   for (const [key, rawValue] of Object.entries(ficha)) {
     if (!wanted.has(normalize(key))) continue;
     if (typeof rawValue === "string" && rawValue.trim()) return rawValue.trim();
+  }
+  return "";
+}
+
+function addressFromMessages(messages: Array<{ text: string | null }>) {
+  const pattern = /\b(?:carrer|calle|avinguda|avenida|plaça|plaza|passeig|paseo|ronda|via)\b[^.!?\n]{3,140}/i;
+  for (const message of messages) {
+    const match = message.text?.match(pattern)?.[0]?.trim();
+    if (match) return match.replace(/[,:;]+$/, "");
   }
   return "";
 }
@@ -57,7 +67,19 @@ export const POST = withAuth(async (session, req: Request) => {
   if (!row.contact.phone) return apiError(422, "missing_phone", "Falta el telèfon del contacte.");
 
   const ficha = (row.contact.ficha ?? {}) as Record<string, unknown>;
-  const address = textValue(ficha, ["adreça", "direcció", "address", "direccion"]);
+  let address = textValue(ficha, ["adreça", "direcció", "address", "direccion"]);
+  if (!address) {
+    const incoming = await db
+      .select({ text: schema.message.text })
+      .from(schema.message)
+      .where(and(eq(schema.message.conversationId, row.conversation.id), eq(schema.message.direction, "in")))
+      .orderBy(desc(schema.message.createdAt))
+      .limit(40);
+    address = addressFromMessages(incoming);
+    if (address) {
+      await upsertFicha({ organizationId: session.organizationId, contactId: row.contact.id, ficha: { adreça: address } });
+    }
+  }
   const workType = textValue(ficha, ["tipus de feina", "tipo de trabajo", "workType", "service", "resultado", "feina", "servei"])
     || "Petició de servei";
   const description = textValue(ficha, ["descripció", "descripción", "description", "detalls", "detalles"])
