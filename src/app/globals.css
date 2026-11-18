@@ -140,13 +140,13 @@
     --bubble-in: #173d2c;
     --bubble-in-border: #2a5e45;
 
-    /* Acento: respaldo con el azul Vocero calculado para este fondo; el
+    /* Acento: respaldo con el marrón Beneït calculado para este fondo; el
        white-label lo recalcula (ver resolveAccentSet en lib/branding). */
-    --accent: #256bff;
-    --accent-hover: #4883ff;
-    --accent-soft: #1f3f82;
-    --accent-tint: #1e3567;
-    --accent-text: #6f9eff;
+    --accent: #866f66;
+    --accent-hover: #99867e;
+    --accent-soft: #44424c;
+    --accent-tint: #333645;
+    --accent-text: #afa09a;
     --accent-fg: #ffffff;
     --accent-ink: var(--accent-text);
     --ring: var(--accent-hover);
@@ -201,7 +201,7 @@
   .nav-dark {
     color-scheme: dark;
     --bg: #0b1327;
-    --bg-subtle: #070e20;
+    --bg-subtle: #160e0b;
     --bg-panel: #131f3d;
     --bg-raised: #131f3d;
     --bg-hover: #182750;

@@ -83,7 +83,13 @@ export async function createAgendaServiceRequest(
     };
   }
 
-  const url = new URL("api/whatsapp/requests", base.href.endsWith("/") ? base : `${base.href}/`);
+  // Accept both the agenda origin (https://.../) and an already-scoped API
+  // base (https://.../api). cPanel deployments have used both forms.
+  const basePath = base.pathname.replace(/\/+$/, "");
+  const endpoint = basePath.endsWith("/api")
+    ? "whatsapp/requests"
+    : "api/whatsapp/requests";
+  const url = new URL(endpoint, base.href.endsWith("/") ? base : `${base.href}/`);
   try {
     const upstream = await fetch(url, {
       method: "POST",

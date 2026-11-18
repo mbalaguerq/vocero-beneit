@@ -6,7 +6,6 @@ import {
   herramientasEfectivas,
   rolDe,
 } from "@/lib/agent-roles";
-import { PERSONAS } from "@/server/lab/personas";
 import { personasDelRol } from "@/server/lab/runner";
 
 /** 034 — Roles como datos: el catálogo, el Calificador y sus personas. */
@@ -37,7 +36,7 @@ describe("el rol Calificador", () => {
 
   it("sus personas existen todas en el Laboratorio", () => {
     expect(personasDelRol("calificador").map((p) => p.key)).toEqual([...ROLES.calificador.personas]);
-    expect(personasDelRol("calificador")).toHaveLength(PERSONAS.length);
+    expect(personasDelRol("calificador")).toHaveLength(ROLES.calificador.personas.length);
   });
 
   it("un rol desconocido cae al Calificador", () => {

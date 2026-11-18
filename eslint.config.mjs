@@ -7,6 +7,11 @@ const config = [
     ignores: [
       "node_modules/**",
       ".next/**",
+      ".next-*/**",
+      ".deploy-*/**",
+      ".package-*/**",
+      "tmp/**",
+      "._*.mjs",
       "dist/**",
       "drizzle/**",
       "scripts/**",

@@ -11,7 +11,7 @@ import {
 } from "@/lib/branding";
 
 const DARK_BG = "#1c263c";
-const NAV_BG = "#0b1327";
+const NAV_BG = "#2b1b16";
 
 /** Contraste WCAG entre dos hex, para afirmar sobre legibilidad y no sobre
  *  valores concretos: lo que importa es que se LEA, no que dé cierto color. */
@@ -64,17 +64,17 @@ describe("white-label: acento", () => {
   });
 
   it("hex inválido cae al default (el azul Vocero)", () => {
-    expect(resolveAccentSet("rojo")).toEqual(ACCENT_PRESETS["#0d5bff"]!.set);
+    expect(resolveAccentSet("rojo")).toEqual(ACCENT_PRESETS["#593a2d"]!.set);
   });
 
-  it("el azul Vocero es el default y trae los valores exactos de la landing", () => {
-    expect(DEFAULT_BRANDING.accent).toBe("#0d5bff");
+  it("el marrón Beneït es el default y trae los valores de la marca", () => {
+    expect(DEFAULT_BRANDING.accent).toBe("#593a2d");
     expect(resolveAccentSet(DEFAULT_BRANDING.accent)).toEqual({
-      accent: "#0d5bff",
-      hover: "#0a4de6",
-      soft: "#d3e2ff",
-      tint: "#ebf1ff",
-      text: "#0038d8",
+      accent: "#593a2d",
+      hover: "#432b22",
+      soft: "#eadfd8",
+      tint: "#f8f4f1",
+      text: "#593a2d",
       fg: "#ffffff",
     });
   });
@@ -109,7 +109,7 @@ describe("white-label: acento en tema oscuro", () => {
 
   it("hex inválido en oscuro también cae al acento por defecto", () => {
     expect(resolveAccentSet("rojo", "dark")).toEqual(
-      resolveAccentSet("#0d5bff", "dark")
+      resolveAccentSet("#593a2d", "dark")
     );
   });
 
@@ -150,11 +150,11 @@ describe("white-label: barra lateral bicolor (.nav-dark)", () => {
     // La receta de la barra es la de antes: el ítem activo del tema claro no
     // cambia aunque el tema oscuro de la página sí.
     expect(resolveNavAccentSet(DEFAULT_BRANDING.accent)).toEqual({
-      accent: "#256bff",
-      hover: "#4883ff",
-      soft: "#122c63",
-      tint: "#0e1e41",
-      text: "#6295ff",
+      accent: "#866f66",
+      hover: "#99867e",
+      soft: "#44332c",
+      tint: "#362520",
+      text: "#aa9a94",
       fg: "#ffffff",
     });
   });
@@ -210,13 +210,13 @@ describe("tema oscuro: las superficies se distinguen", () => {
 
 describe("white-label: normalización", () => {
   it("nombre vacío o nulo → default 'Vocero'; se recorta a 30", () => {
-    expect(normalizeBranding(null).name).toBe("Vocero");
-    expect(normalizeBranding({ name: "   " }).name).toBe("Vocero");
+    expect(normalizeBranding(null).name).toBe("Instal·lacions Beneït");
+    expect(normalizeBranding({ name: "   " }).name).toBe("Instal·lacions Beneït");
     expect(normalizeBranding({ name: "x".repeat(50) }).name).toHaveLength(30);
   });
 
   it("acento inválido → default", () => {
-    expect(normalizeBranding({ accent: "azul" }).accent).toBe("#0d5bff");
+    expect(normalizeBranding({ accent: "azul" }).accent).toBe("#593a2d");
     expect(normalizeBranding({ accent: "#3F6B66" }).accent).toBe("#3f6b66");
   });
 });

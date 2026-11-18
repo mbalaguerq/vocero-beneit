@@ -18,29 +18,29 @@ const labels = (groups: { items: { label: string }[] }[]) =>
 describe("barra lateral agrupada", () => {
   it("con todo apagado y como miembro: Trabajo, Agente y Resultados", () => {
     const groups = appNavGroups({ role: "member" });
-    expect(groups.map((g) => g.title)).toEqual(["Trabajo", "Agente", undefined]);
+    expect(groups.map((g) => g.title)).toEqual(["Feina", "Agente", undefined]);
     expect(labels(groups)).toEqual([
-      ["Bandeja", "Pipeline", "Contactos"],
-      ["Agente", "Laboratorio"],
-      ["Resultados"],
+      ["Safata", "Embuts", "Contactes"],
+      ["Agent", "Laboratori"],
+      ["Resultats"],
     ]);
   });
 
   it("AGENDA añade Citas al final de Trabajo", () => {
     const [trabajo] = appNavGroups({ agenda: true, role: "member" });
     expect(trabajo!.items.map((i) => i.label)).toEqual([
-      "Bandeja",
-      "Pipeline",
-      "Contactos",
-      "Citas",
+      "Safata",
+      "Embuts",
+      "Contactes",
+      "Agenda",
     ]);
-    expect(trabajo!.items.at(-1)!.href).toBe("/bookings");
+    expect(trabajo!.items.at(-1)!.href).toBe("https://proves.instalabeneit.es/");
   });
 
   it("la guía de inicio abre el grupo Agente solo para quien configura", () => {
     for (const role of ["owner", "admin"]) {
       const agente = appNavGroups({ role })[1]!;
-      expect(agente.items[0]).toMatchObject({ href: "/onboarding", label: "Guía de inicio" });
+      expect(agente.items[0]).toMatchObject({ href: "/onboarding", label: "Guia d'inici" });
     }
     for (const role of ["member", null, undefined]) {
       const agente = appNavGroups({ role })[1]!;
@@ -72,38 +72,38 @@ describe("ajustes en tres secciones", () => {
 
   it("con todo apagado: Canales, Agente y Negocio con lo mínimo", () => {
     const sections = settingsSections({});
-    expect(sections.map((s) => s.title)).toEqual(["Canales", "Agente", "Negocio"]);
+    expect(sections.map((s) => s.title)).toEqual(["Canals", "Agent", "Negoci"]);
     expect(links(sections)).toEqual({
-      Canales: ["WhatsApp"],
-      Agente: ["IA"],
-      Negocio: ["Marca", "Plantillas", "Equipo"],
+      Canals: ["WhatsApp"],
+      Agent: ["IA"],
+      Negoci: ["Marca", "Plantilles", "Equip"],
     });
   });
 
   it("cada bandera añade su enlace en su sección y en ninguna otra", () => {
     // 023: con un canal social, "Estado" abre la sección.
     expect(links(settingsSections({ messenger: true }))).toEqual({
-      Canales: ["Estado", "WhatsApp", "Messenger"],
-      Agente: ["IA"],
-      Negocio: ["Marca", "Plantillas", "Equipo"],
+      Canals: ["Estat", "WhatsApp", "Messenger"],
+      Agent: ["IA"],
+      Negoci: ["Marca", "Plantilles", "Equip"],
     });
-    expect(links(settingsSections({ instagram: true })).Canales).toEqual([
-      "Estado",
+    expect(links(settingsSections({ instagram: true })).Canals).toEqual([
+      "Estat",
       "WhatsApp",
       "Instagram",
     ]);
     expect(
-      links(settingsSections({ instagram: true, messenger: true, tiktok: true })).Canales
-    ).toEqual(["Estado", "WhatsApp", "Instagram", "Messenger", "TikTok"]);
+      links(settingsSections({ instagram: true, messenger: true, tiktok: true })).Canals
+    ).toEqual(["Estat", "WhatsApp", "Instagram", "Messenger", "TikTok"]);
     expect(links(settingsSections({ agenda: true }))).toEqual({
-      Canales: ["WhatsApp"],
-      Agente: ["IA", "Agenda"],
-      Negocio: ["Marca", "Plantillas", "Equipo"],
+      Canals: ["WhatsApp"],
+      Agent: ["IA", "Agenda"],
+      Negoci: ["Marca", "Plantilles", "Equip"],
     });
     expect(links(settingsSections({ atribucion: true }))).toEqual({
-      Canales: ["WhatsApp"],
-      Agente: ["IA"],
-      Negocio: ["Marca", "Plantillas", "Equipo", "Anuncios"],
+      Canals: ["WhatsApp"],
+      Agent: ["IA"],
+      Negoci: ["Marca", "Plantilles", "Equip", "Anuncis"],
     });
   });
 
