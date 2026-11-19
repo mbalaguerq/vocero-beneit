@@ -103,6 +103,8 @@ async def test_book_acepta_propuesta_manual_sin_slot_previamente_ofrecido(runtim
     assert runtime.booked is True
     assert bookings.call_count == 0
     assert agenda.call_count == 1
+    agenda_payload = json.loads(agenda.calls[0].request.content)
+    assert agenda_payload["workType"] == "Petició de servei"
     assert await ctx.store.get_offered_slots(conv.id) == []
 
 

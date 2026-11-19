@@ -940,7 +940,7 @@ class ToolRuntime:
             "clientName": contact.get("name") or contact.get("displayName"),
             "phone": contact.get("phone") or contact.get("waIdentity") or contact.get("identity"),
             "address": ficha.get("address") or ficha.get("adreca") or ficha.get("geo"),
-            "workType": ficha.get("workType") or ficha.get("rubro") or "",
+            "workType": ficha.get("workType") or ficha.get("rubro") or "Petició de servei",
             "description": f"Reserva Vocero: {_iso_z(chosen.start_utc)}",
         }
         try:

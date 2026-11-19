@@ -45,12 +45,14 @@ async def drain_one(ctx: Any) -> bool:
 
         task = asyncio.create_task(execute())
         try:
-            async with asyncio.timeout(240):
+            async def wait_with_heartbeats() -> None:
                 while not task.done():
                     await asyncio.wait({task}, timeout=20)
                     if not task.done():
                         await job.heartbeat()
                 await task
+
+            await asyncio.wait_for(wait_with_heartbeats(), timeout=240)
             await job.finish()
         finally:
             if not task.done():

@@ -112,7 +112,7 @@ async def _pdf_text(data: bytes) -> str | None:
     if len(data) > MAX_MEDIA_BYTES:
         return None
     # The timeout includes queueing: excess load cannot accumulate parser jobs.
-    async with asyncio.timeout(6):
+    async def parse() -> str | None:
         async with _pdf_slots:
             process = await asyncio.create_subprocess_exec(
                 sys.executable, "-I", str(Path(__file__).with_name("pdf_extract.py")),
@@ -129,6 +129,8 @@ async def _pdf_text(data: bytes) -> str | None:
                 if process.returncode is None:
                     process.kill()
                 await process.wait()
+
+    return await asyncio.wait_for(parse(), timeout=6)
 
 
 async def _document(ctx: AppContext, msg: InboundMessage) -> MediaPart:
