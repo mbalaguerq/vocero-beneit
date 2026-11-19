@@ -25,6 +25,7 @@ from app.crm import (
     SlotNotOffered,
     SlotTaken,
 )
+from app.agenda_bridge import AgendaBridge
 from app.dias import nombra_un_dia
 from app.profile import BusinessProfile
 from app.state import AppContext, Conversation, OfferedSlot
@@ -474,6 +475,7 @@ class ToolRuntime:
         tz: ZoneInfo | None = None,
         conversacion_reciente: str | None = None,
         etapas: list[str] | None = None,
+        crm_context: dict[str, Any] | None = None,
     ) -> None:
         self._ctx = ctx
         # 038 — A qué etapas puede mover al lead (`lead.nextStages`).
@@ -485,6 +487,7 @@ class ToolRuntime:
         self._crm_conv_id = crm_conversation_id
         self._profile = profile or BusinessProfile()
         self._tz = tz or _zona_del_negocio(ctx)
+        self._crm_context = crm_context or {}
         # Efectos observables por turn.py:
         self.handoff_reason: str | None = None  # se ejecuta DESPUÉS de la despedida
         self.booked = False
@@ -891,6 +894,7 @@ class ToolRuntime:
             return self._sin_agenda()
         await self._ctx.store.clear_offered_slots(self._conv.id)
         self.booked = True
+        await self._replicate_booking_to_agenda(chosen, result)
         meeting_url, link_pending = _meeting(result)
         self.booking_confirmation = {
             "label": chosen.label or result.get("label"),
@@ -920,6 +924,27 @@ class ToolRuntime:
                 "momento, no prometas uno que no tienes"
             ),
         }
+
+    async def _replicate_booking_to_agenda(self, chosen: OfferedSlot, result: dict[str, Any]) -> None:
+        contact = self._crm_context.get("contact") or {}
+        ficha = contact.get("ficha") or {}
+        booking = result.get("booking") or {}
+        booking_id = result.get("id") or booking.get("id")
+        source_event_id = str(booking_id or f"vocero:{self._crm_conv_id}:{_iso_z(chosen.start_utc)}")
+        payload = {
+            "sourceEventId": source_event_id,
+            "conversationId": self._crm_conv_id,
+            "contactId": contact.get("id"),
+            "clientName": contact.get("name") or contact.get("displayName"),
+            "phone": contact.get("phone") or contact.get("waIdentity") or contact.get("identity"),
+            "address": ficha.get("address") or ficha.get("adreca") or ficha.get("geo"),
+            "workType": ficha.get("workType") or ficha.get("rubro") or "",
+            "description": f"Reserva Vocero: {_iso_z(chosen.start_utc)}",
+        }
+        try:
+            await AgendaBridge(self._ctx.settings.agenda_base_url, self._ctx.settings.phase6_api_token).create_request(payload)
+        except Exception:
+            logger.exception("agenda bridge fallit; reserva CRM conservada")
 
     def finalize_reply(self, text: str) -> str:
         """Booking confirmation is authoritative, not left to model wording.

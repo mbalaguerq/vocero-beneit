@@ -451,6 +451,7 @@ async def run_turn(
         tz=tz,
         conversacion_reciente=_conversacion_reciente(history),
         etapas=etapas_siguientes(context),
+        crm_context=context,
     )
     try:
         final_text = await _tool_loop(ctx, messages, runtime)

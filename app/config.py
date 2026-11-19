@@ -72,6 +72,8 @@ class Settings(BaseSettings):
     # firma es esta misma llave, la que autentica lo que Nea le manda al CRM.
     crm_base_url: str = "http://localhost:3000"
     crm_bot_api_key: str = ""
+    agenda_base_url: str = ""
+    phase6_api_token: str = ""
 
     # Perfil del negocio (capa de persona; ver app/profile.py)
     agent_name: str = "Nea"  # se usa si el CRM no define nombre
