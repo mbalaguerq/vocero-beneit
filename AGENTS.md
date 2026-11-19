@@ -190,3 +190,12 @@ Documentación: README («Tu agente al lado del CRM»), `docs/migrar-a-2.0.md`, 
 6. Dependencias: `pnpm install --frozen-lockfile` debe pasar; un tercero nuevo en el núcleo necesita justificación constitucional (Principio II).
 
 Las instrucciones específicas de Claude Code están en `CLAUDE.md`.
+
+## Separació real de projectes (VERIFICAT 2026-11-19)
+
+- Aquest repositori privat és el CRM Next.js: `https://github.com/mbalaguerq/vocero-crm-beneit.git`.
+- La font local de treball és `C:\laragon\www\App Beneit Agenda\vocero-beneit`.
+- El destí del CRM de proves és `https://vocero.instalabeneit.es`, desplegat a cPanel; no és Render.
+- `mbalaguerq/vocero-beneit` és el repositori separat de Nea i el servei Render `vocero-nea-proves` hi apunta. No desplegar aquest CRM a Render.
+- La font de dades del CRM de proves i el procediment Node.js/cPanel encara s’han de verificar abans del primer desplegament.
+- Treballar localment, validar (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`) i només després empaquetar/desplegar al webroot de cPanel del CRM.
