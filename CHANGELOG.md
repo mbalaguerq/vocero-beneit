@@ -1,392 +1,562 @@
 # Cambios
 
-Qué cambia en cada versión de Nea y qué hacer al actualizar. Cada tag
-`vX.Y.Z` publica la imagen `ghcr.io/kevinrivm/nea-agent:X.Y.Z` (README,
-«Instalar»).
-
-## 2.0.2 — 2026-10-22
-
-### Arreglado
-
-- **Las notas de voz se transcriben sin configurar nada.** Pensando por el CRM
-  (o con `LLM_BASE_URL`), el audio viaja dentro del chat y `whisper-1`, el
-  default de `LLM_TRANSCRIBE_MODEL`, no existe ahí: toda nota de voz fallaba y
-  Nea pedía que se la escribieran. Ahora, con `whisper-1` por esa vía, oye
-  `google/gemini-3.5-flash-lite` (≈ USD 0.0001 por nota). Un modelo puesto en
-  la variable se sigue respetando, y con OpenAI nada cambia.
-
-### Seguridad
-
-- **`pypdf` 6.19.0 → 6.21.2**: cierra ocho CVE publicadas en octubre de 2026
-  (`pip-audit`). Es la librería que lee los PDF del conocimiento.
-
-## 2.0.1 — 2026-10-21
-
-### Arreglado
-
-- **`ALLOWED_WA_IDS` y `TESTER_WA_IDS` aceptan el teléfono como se escriba**:
-  con `+`, espacios, guiones o paréntesis. Antes, con el `+`, la lista no
-  coincidía nunca con la identidad que manda el CRM (solo dígitos) y Nea no
-  le contestaba ni al dueño en modo prueba. Hallado en el ensayo del starter
-  3.0.0.
+Qué trae cada versión de Vocero CRM y qué hacer para actualizar. La versión
+sigue el SemVer del [README](README.md#versiones): una menor trae funciones
+nuevas y actualizar es redesplegar. Desde 1.4.0, cada tag `vX.Y.Z` publica la
+imagen `ghcr.io/kevinrivm/vocero-crm:X.Y.Z`.
 
 ## 2.0.0 — 2026-10-20
 
-Versión mayor: **hay algo que hacer a mano al actualizar** (abajo, «Actualizar
-desde 1.x»). Spec 031 de vocero-crm (`specs/031-nea-por-despacho`).
+El agente sale del CRM y se conecta por contrato. Vocero se queda con lo suyo
+—bandeja, pipeline, agenda, perfil del agente, conocimiento, la llave de IA y
+el Laboratorio— y contesta [Nea](https://github.com/kevinrivm/nea-agent) (MIT)
+u otro cerebro conectado al lado. Sin agente, Vocero es una bandeja manual.
+
+### Actualizar desde 1.6.0
+
+Es mayor: hay algo que hacer a mano. La guía completa, por caso (solo el
+agente incluido, Nea 1.x delante, cerebro propio), es
+[`docs/migrar-a-2.0.md`](docs/migrar-a-2.0.md). Lo corto:
+
+1. Respalda la base, como siempre.
+2. **docker compose**: `git pull`; si tu `.env` no tiene `BOT_API_KEY`,
+   agrégala (`openssl rand -hex 32`); y `docker compose up -d`: levanta el CRM
+   2.0.0 y Nea 2.0.0 sobre la misma base, con el despacho ya cableado. **Coolify**: la etiqueta `2.0.0` y un servicio más para Nea (guía,
+   «El par»). Las migraciones corren solas.
+3. Enciende el agente en la pantalla Agente: desde la 2.0 ese interruptor
+   decide si el CRM le despacha a tu agente, y solo se enciende con el agente
+   conectado y sano.
+4. Si tu número recibía los webhooks en Nea 1.x, **recupera el webhook** en
+   Configuración → WhatsApp.
+
+### ⚠️ Rompe: hay que hacer algo a mano
+
+- **El CRM ya no trae agente** (036). Quien contesta es el cerebro que
+  conectas al lado: [Nea](https://github.com/kevinrivm/nea-agent) (MIT) u
+  otro, por el despacho (`BRAIN_DISPATCH_URL` + `BOT_API_KEY`) y
+  `/api/bot/*`. Sin cerebro, Vocero es un CRM de bandeja manual: recibe, se
+  contesta a mano, pipeline y agenda. **Si usabas el agente incluido, nadie
+  contesta después de actualizar** hasta que levantes Nea (`docker compose
+  up -d`, o el servicio en Coolify) y vuelvas a encender el agente. El perfil, el conocimiento, la llave de Ajustes → IA y el
+  Laboratorio se quedan donde estaban.
+- **El interruptor de la pantalla Agente ahora decide el despacho** (036).
+  Encendido = el CRM le despacha a tu agente; apagado = las conversaciones se
+  quedan en la bandeja. Encenderlo exige un cerebro configurado y con su
+  `/health` sano (si no, 409 `sin_cerebro`). **Si ya despachabas con la 1.6 y
+  el interruptor estaba apagado** (entonces no importaba), enciéndelo después
+  de actualizar; la tarjeta «Quién responde» lo avisa.
+
+### Nuevo
+
+- **El despacho lleva lo que el cerebro leía del webhook** (031): `adOrigen`
+  en el contexto; `fileName`, `location` y `contacts` en los mensajes.
+- **El Laboratorio prueba al cerebro que contesta** (033), por el despacho;
+  `POST /api/bot/messages` guarda las respuestas de prueba sin enviarlas.
+- **Roles como datos** (034): rol Calificador y herramientas encendidas en la
+  pantalla Agente; `role` y `tools` en `/api/bot/profile`. Migración `0021`.
+- **Contrato público** (035): [`docs/openapi.json`](docs/openapi.json),
+  servido en `GET /api/bot/openapi.json` y validado en `pnpm test`.
+- **Recuperar el webhook** (035) en Configuración → WhatsApp, para quien
+  venía con Nea 1.x delante del CRM.
+- **El par en el compose** (035): `docker compose up -d` levanta Nea al lado
+  del CRM sobre la misma base, con el despacho ya cableado. Render trae el
+  servicio `vocero-nea`; `pnpm init-env` genera `BOT_API_KEY`.
+- **Tu agente piensa por el CRM** (036): `POST /api/bot/llm/{ruta}`, compatible
+  con OpenAI, reenvía al proveedor de Ajustes → IA con la llave guardada. La
+  llave se pone una vez, en la interfaz, y no sale del CRM; un 401 o 402 del
+  proveedor la pausa en Ajustes → IA. Sin IA, 402 `sin_credencial`. `/api/bot/*`
+  acepta también `Authorization: Bearer`.
+- **`llm` en `/api/bot/profile`** (036): `{path, model}` con el modelo de
+  Ajustes → IA, o `null` sin IA configurada. Nea 2.0 sin `LLM_API_KEY` lo usa
+  solo.
+- **«Conecta tu agente» en la guía de inicio** (036), opcional: se marca
+  cuando el despacho está configurado y el agente contesta su `/health`. Sin
+  agente, la guía dice que Vocero funciona como bandeja manual y no te deja
+  atrapado en ella.
+- **Tu agente mueve al lead de etapa** (038): `POST /api/bot/stage`, solo hacia
+  adelante y a etapas abiertas (ganar o perder lo decide una persona), con la
+  herramienta «Mover de etapa» del rol; el contexto trae `lead.nextStages`.
+  Nea 2.0 la usa.
+- **Adjuntos en un bucket S3-compatible** (037), opcional y apagado por
+  defecto: `MEDIA_STORE=bucket` y las `MEDIA_BUCKET_*`. Lo nuevo va al bucket
+  y lo viejo se sigue leyendo del volumen (sin migrar); si el bucket falla al
+  escribir, el archivo queda en el volumen. `docker compose --profile bucket`
+  levanta un MinIO propio. `/api/health` gana `features.media`; el sondeo de
+  `mediaWritable` y `pnpm doctor` prueban el bucket. Sin SDK de AWS.
 
 ### Cambió
 
-- **Nea ya no recibe el webhook de Meta: el CRM se lo despacha.** Meta (y
-  Zernio) le escriben al CRM; el CRM guarda el mensaje, junta la ráfaga y se la
-  entrega a Nea firmada en `POST /vocero/dispatch`. Contra Vocero raíz la firma
-  es `CRM_BOT_API_KEY`, la misma llave con la que Nea ya le contesta: no hay un
-  secreto nuevo. Es la entrada que Vocero Cloud ya usaba.
-- **Un CRM que no contesta al empezar el turno ya no se reintenta aquí.** Nea
-  1.x repetía la ráfaga hasta diez minutos porque el relay podía no haberle
-  entregado el mensaje al CRM todavía. Con el despacho, el CRM acaba de
-  mandarlo: si no contesta, la cola del despacho le pasa la conversación a
-  una persona (motivo `error`) en cuanto vuelva.
+- **El Laboratorio necesita un agente conectado** (036): las personas le
+  escriben por el despacho; sin él, crear una corrida responde 409
+  `sin_cerebro` y la pantalla lo explica. El juez sigue usando la llave de
+  Ajustes → IA.
+- **«Quién responde»** (036) deja el agente incluido y el aviso
+  `doble_respuesta`. Quedan `sin_cerebro` (informativo: bandeja manual) y
+  `apagado` (agente conectado con el interruptor apagado).
+- **Nea en el compose sin llave de IA** (036): el servicio `nea` ya no lleva
+  `LLM_API_KEY` y `.env.example` pierde `NEA_LLM_API_KEY`. Si la tenías en tu
+  `.env`, ya no se lee: puedes quitarla. Nea piensa por el CRM.
+- Ajustes → IA dice para qué es la llave: con ella piensa tu agente (a través
+  del CRM) y el juez del Laboratorio.
+
+### Se fue
+
+- El turno dentro del proceso (036): `src/server/ai/{pipeline,actions,trigger,handoff,orden-turno}.ts`,
+  el prompt del agente de `prompts.ts` (quedan `renderKb` y el prompt del
+  juez), `src/server/agenda/agent.ts` y `scripts/eval-silencios.ts`. Un fork
+  que los tocaba tiene que llevar ese comportamiento a su cerebro.
+
+## 1.6.0 — 2026-10-14
+
+La versión multicanal. Instagram, Messenger y ahora TikTok llegan a la misma
+bandeja que WhatsApp, se conectan pegando la llave de Zernio y se vigilan desde
+una sola pantalla. El agente escribe como se debe en cada red y ya no se queda
+callado ante un saludo. Y llegan dos cosas que pedían los negocios con
+clientes de siempre: importar contactos y marcarlos «sin agente». Con solo
+WhatsApp encendido, todo funciona como antes.
+
+### Actualizar desde 1.5.1
+
+1. Respalda la base, como siempre.
+2. Redespliega con la imagen `1.6.0` (compose: `git pull` y
+   `docker compose up -d`; Coolify: cambia la etiqueta y redespliega). Las
+   migraciones `0018` a `0020` son aditivas y corren solas al arrancar.
+3. Si ya tenías Instagram o Messenger por Zernio, no hay que reconectar nada.
+   Al arrancar, el log dice `[boot] N secreto(s) de firma de Zernio
+   cifrado(s) en reposo`: es la 030 haciendo su trabajo, una sola vez.
+4. Para encender canales, pon `CHANNELS` (por ejemplo
+   `whatsapp,instagram,messenger,tiktok`) y **redespliega**: un reinicio no
+   carga variables nuevas. Después abre Configuración → Estado.
+5. Si tienes un cerebro externo por despacho: en Instagram y Messenger, entre
+   las 24 horas y los 7 días, `POST /api/bot/messages` ahora responde 409
+   `window_closed` a la IA; y tras eliminar una conversación llega un evento
+   `conversation.deleted` a la misma URL. Mira `type` antes de buscar
+   `messages`.
+
+TikTok está probado con el simulador y aún no con un mensaje real: la cuenta
+Business de prueba sigue en revisión.
+
+### Cambios
+
+- **Canal de TikTok** (022), opcional y apagado por defecto: con `tiktok` en
+  `CHANNELS`, los mensajes directos de tu cuenta TikTok Business entran a la
+  misma bandeja, con su distintivo, y los contesta el operador o el agente.
+  Llega por Zernio, con tu propia cuenta; se conecta en Ajustes → TikTok.
+  Vocero aplica lo que TikTok impone y lo dice claro: ventana de 48 horas sin
+  forma de reabrir, hasta 10 mensajes tras el último del cliente (el undécimo
+  responde 409 `message_limit`) y texto de hasta 6,000 caracteres.
+  **Aún sin probar con un mensaje real de TikTok** (solo con simulador): la
+  cuenta Business de prueba está en revisión.
+- **Migración `0018_canal_tiktok`**: crea la tabla `tiktok_credentials`.
+  Aditiva; corre sola al arrancar y queda vacía si no usas el canal.
+- **Pulido de la bandeja multicanal** (028). En Instagram, Messenger y TikTok
+  el compositor ya no ofrece adjuntos, ubicación ni contacto, que esos canales
+  no mandan. La bandeja vacía y el filtro de un canal sin conversaciones dicen
+  qué pasa («Nadie ha escrito por Instagram todavía»). Con más de un canal, el
+  menú, la pestaña y la pantalla de entrada dicen «multicanal». Y al cambiar de
+  conversación ya no se arrastran el borrador ni el archivo elegido: antes un
+  adjunto escogido para una persona podía salir en la conversación de otra.
+  Los avatares de nombres con emoji («Kevin Belier 🐏») ya no salen rotos.
+- **El agente contesta los saludos** (029). Un «Hola, prueba» —lo primero que
+  escribe quien estrena su agente— se quedaba sin respuesta: el agente lo tomaba
+  por un mensaje de prueba y callaba. Ahora solo calla ante un cierre («ok»,
+  «gracias», un emoji). Y deja de gastar un segundo llamado al modelo en cada
+  turno después del primero, así que contesta antes. Sin nada que configurar.
+- **Importar contactos** (027). En Contactos, «Importar»: un CSV con una
+  columna de nombre y una de teléfono (con código de país). Se lee en tu
+  navegador y te enseña qué va a entrar y qué se queda fuera, con su motivo,
+  antes de crear nada. No duplica ni le cambia el nombre a quien ya existía, y
+  no crea conversaciones ni leads. Hasta 2,000 renglones por archivo.
+- **Contactos «sin agente»** (027). Una casilla al importar, y otra en «Editar»
+  de cada contacto: el agente no le responde a esa persona. Sus mensajes
+  llegan a la bandeja y los atiendes tú; vale para el agente incluido y para un
+  cerebro por despacho. Pensado para clientes o miembros que ya son tuyos.
+- **Migración `0019_contact_ai_paused`**: una columna en `contact`, con
+  valor por defecto. Aditiva; corre sola al arrancar y deja a todos tus
+  contactos con agente, como estaban.
+- **El secreto de firma de Zernio, cifrado** (030). Instagram, Messenger y
+  TikTok guardaban en claro el secreto con el que se comprueba que un webhook
+  viene de Zernio; ahora va cifrado con tu `ENCRYPTION_KEY`, como el token.
+  Quien leyera un respaldo de la base podía fabricar mensajes que el CRM
+  aceptaba como reales. No hay que reconectar nada.
+- **Migración `0020_secreto_zernio_cifrado`**: tres columnas nulas en cada
+  tabla de credenciales de canal. Aditiva; corre sola al arrancar. Después,
+  al arrancar la app, los secretos que ya tenías se cifran y la columna vieja
+  queda vacía; el log dice cuántos (`[boot] N secreto(s) de firma de Zernio
+  cifrado(s) en reposo`). La columna vieja se quita en una versión mayor: no
+  saltes de una 1.5 directo a esa, pasa antes por la 1.6.
+- **Eliminar una conversación** (026). En la bandeja, al fondo de Detalles:
+  se borran los mensajes, sus adjuntos (también el archivo) y la ficha; el
+  contacto conserva sus notas y su etapa, salvo que marques «Borrar también el
+  contacto y su lead». Es irreversible y solo lo ve quien administra el
+  negocio. Una cita agendada por venir lo detiene: primero se cancela.
+- **El cerebro olvida lo borrado** (026). Con el despacho activo, tras eliminar
+  una conversación el CRM manda un evento `conversation.deleted` a la misma
+  URL y con la misma firma que un turno (un intento, sin reintentos). Si tu
+  cerebro recibe despachos, mira `type` antes de buscar `messages`: un
+  cuerpo con `type` no es un turno. Y trata un `conversation.id` nuevo para
+  una persona que ya conocías como una conversación nueva. Detalle en
+  `specs/021-despacho-estandar/contracts/despacho.md`.
+- **En Instagram, Messenger y TikTok el agente ya no escribe con asteriscos**
+  (024). El agente incluido y los cerebros externos marcan negritas como en
+  WhatsApp; esas redes no las dibujan y el cliente veía `*así*`. Ahora el
+  texto de la IA sale plano en esos canales: sin marcas, con `•` en las listas
+  y los enlaces como `texto: URL`. WhatsApp no cambia, y lo que escribe una
+  persona en la bandeja tampoco.
+- **Ventana humana en Instagram y Messenger** (024). Pasadas 24 horas del
+  último mensaje del cliente la bandeja ya no esconde el cuadro de texto ni
+  pide una plantilla que esos canales no tienen: una persona puede contestar
+  hasta 7 días (sale con la etiqueta de agente humano de Meta) y la bandeja
+  dice cuánto queda. Pasados los 7 días lo explica en vez de dejar que Meta
+  rechace el envío.
+- **La IA deja de usar esa etiqueta.** Entre 24 horas y 7 días, en Instagram
+  y Messenger, `POST /api/bot/messages` responde 409 `window_closed` (antes
+  enviaba con la etiqueta, que Meta reserva a personas). Es lo que ya decían
+  `windowOpen` y el contrato del despacho; el agente incluido pasa la
+  conversación a una persona, como en WhatsApp.
+- **Instagram ya tiene pantalla** (023): Configuración → Instagram. Antes el
+  canal solo se podía conectar llamando a la API a mano.
+- **Conectar por Zernio es pegar la llave** (023), en Instagram, Messenger y
+  TikTok. Vocero encuentra la cuenta con esa llave (y si hay varias, las
+  ofrece para elegir), da de alta el webhook en tu Zernio limitado a tus
+  cuentas y genera el secreto de firma. Ya no se copia un `accountId` ni se
+  captura un secreto. Arregla dos fallos silenciosos: guardar el id del perfil
+  en vez del de la cuenta (el webhook respondía 200 y cada mensaje se
+  descartaba) y tener un secreto distinto por canal (uno rechazaba todo con
+  401).
+- **Configuración → Estado** (023): todos los canales encendidos, si están
+  conectados, cuándo entró el último mensaje y, por Zernio, cómo están la
+  cuenta y el webhook, con un botón para repararlo. Aparece si tienes algún
+  canal social encendido.
+- La firma de Zernio vale con cualquiera de los secretos de tus canales y con
+  el que Zernio tenga para el webhook de esta instancia: un secreto mal
+  capturado deja de tumbar un canal.
+- Conectar Instagram pasa a ser cosa del propietario, como ya lo eran
+  Messenger y TikTok.
+- `/api/bot/messages` gana el 409 `message_limit`. En `/api/bot/context` y en
+  el despacho, la ventana (`windowOpen`, `windowRemainingMs`,
+  `windowExpiresAt`) es la del canal de la conversación; para WhatsApp,
+  Instagram y Messenger sigue siendo de 24 horas.
+
+## 1.5.1 — 2026-10-13
+
+Sale antes que la 1.6.0 por un arreglo que no espera: el agente dejaba sin
+contestar el segundo mensaje cuando el cliente escribía dos veces seguidas.
+Trae también lo que ya estaba en `main` camino a la 2.0.0 (el despacho al
+cerebro), que no cambia nada si no tocas tus variables.
+
+### Actualizar desde 1.5.0
+
+Redespliega con la imagen `1.5.1` (compose: `git pull` y
+`docker compose up -d`; Coolify: cambia la etiqueta y redespliega). Respalda
+la base antes, como siempre. Las migraciones `0016` y `0017` son aditivas y
+corren solas al arrancar.
+
+### Cambios
+
+- **Despacho al cerebro** (#89): con `BRAIN_DISPATCH_URL` y `BOT_API_KEY`, el
+  CRM le pasa cada turno a tu cerebro externo con un `POST` firmado, en vez de
+  que el cerebro reciba el webhook de Meta. Vale para WhatsApp, Instagram y
+  Messenger. Mientras está activo, el agente incluido no contesta; si el
+  cerebro no recibe el turno, la conversación queda con una persona. La
+  tarjeta «Quién responde» y `pnpm doctor` dicen si está activo o qué falta.
+  Contrato en `specs/021-despacho-estandar/contracts/despacho.md`.
+- **Migración `0016_despacho_al_cerebro`**: crea la tabla `dispatch`. Aditiva;
+  corre sola al arrancar y queda vacía si no usas el despacho.
+- **El agente ya no deja sin contestar el segundo mensaje** (025). Si el
+  cliente escribía otra vez mientras se pensaba la respuesta a lo anterior,
+  ese mensaje quedaba detrás de la respuesta y se daba por atendido. Ahora
+  quien lleva el turno recuerda qué mensajes debe: con el despacho, el cerebro
+  recibe ese mensaje en su propio despacho; con el agente incluido, el modelo
+  lo lee después de su propia respuesta y gasta un turno más, solo uno.
+- **Si una persona contesta desde la bandeja dentro de la ventana de
+  agrupado, el agente incluido ya no contesta encima.** Con el despacho ya era
+  así. La IA de la conversación sigue encendida para el siguiente mensaje.
+- **Migración `0017_dispatch_message_ids`**: una columna nula en `dispatch`.
+  Aditiva; corre sola al arrancar.
+- El contrato del despacho gana dos garantías: `messages` nunca llega vacío, y
+  un mensaje puede ser anterior a tu última respuesta (deduplica por
+  `messages[].id`, como ya pedía).
+- Si ya tienes Nea delante del CRM, **no pongas `BRAIN_DISPATCH_URL` todavía**:
+  Nea 1.x recibe el webhook por su cuenta y le llegaría cada mensaje dos
+  veces. El despacho es para la Nea que lo reciba
+  ([nea-agent#37](https://github.com/kevinrivm/nea-agent/issues/37)).
+
+## 1.5.0 — 2026-10-08
+
+Primera versión del plan [docs/plan-1.5-y-2.0.md](docs/plan-1.5-y-2.0.md):
+todo lo de aquí se actualiza redesplegando. El agente incluido, Nea y el
+contrato `/api/bot/*` no cambian; la arquitectura del agente es tema de 2.0.
+
+### Actualizar desde 1.4.0
+
+Redespliega con la imagen `1.5.0` (compose: `git pull` y
+`docker compose up -d`; Coolify: cambia la etiqueta y redespliega). Respalda
+la base antes, como siempre.
+
+- **Migración `0015_token_de_ia`**: crea la tabla `ai_credentials`. Aditiva;
+  corre sola al arrancar.
+- **La IA se configura en Ajustes → IA.** Tus `OPENROUTER_*` del entorno
+  siguen valiendo: son el respaldo cuando no hay nada guardado en la
+  interfaz. Si pegas una llave en Ajustes, esa manda.
+- **Al entrar verás la Guía de inicio** mientras falte un paso o el agente
+  siga apagado. El menú funciona igual; es solo la primera pantalla.
+- **Webhook de Meta**: al volver a guardar la conexión de WhatsApp, el CRM
+  registra su webhook en el número por sí solo. Si usas Nea u otro cerebro
+  con override en la WABA, el CRM lo detecta y no lo pisa.
+- **Adjuntos**: HTML, SVG y XHTML ya no se aceptan como documento, y lo que no
+  sea imagen, audio, video o PDF se descarga en vez de abrirse en el
+  navegador.
+- `/api/health` trae dos campos nuevos (`features`, `mediaWritable`); los de
+  antes no cambian.
 
 ### Nuevo
 
-- **Instagram, Messenger y TikTok.** Todo lo que el CRM despacha le llega a
-  Nea, y el prompt nombra el canal (`conversation.channel`): un DM de
-  Instagram no se contesta «por WhatsApp». En WhatsApp el chasis no cambia ni
-  un byte.
-- **Lo que el webhook daba, ahora llega del CRM**: el anuncio de origen
-  (`adOrigen` del contexto), la ubicación, los nombres de las tarjetas de
-  contacto y el nombre del documento (llaves nuevas del despacho, vocero-crm
-  031). La nota de voz se reconoce por su tipo (`audio/ogg`).
-- **`DATABASE_SCHEMA`**: con `nea`, Nea guarda sus tablas en ese esquema y
-  puede usar la misma base del CRM. Vacía, `public`, como siempre.
-- **Un mensaje repetido en dos despachos se lee una vez también contra la
-  raíz** (antes, solo en cloud).
-- `/health` gana `webhookDeMeta.ultimoEn`: cuándo le llegó a Nea un webhook de
-  Meta, que desde la 2.0 ya no debería llegarle.
-- **El Laboratorio del CRM prueba a Nea** (vocero-crm 033). Un despacho con
-  `conversation.test: true` es una corrida del Laboratorio: pasa aunque la
-  identidad (sintética) no esté en `ALLOWED_WA_IDS` y no programa seguimiento.
-  La respuesta la guarda el CRM sin enviarla.
-- **Roles como datos** (vocero-crm 034). El perfil del CRM trae `role` y
-  `tools`: Nea le enseña al modelo solo las herramientas encendidas (ficha,
-  agendar, reprogramar, salida; escalar va siempre). Sin «agendar», se porta
-  como contra un CRM sin agenda. El cambio llega cuando Nea relee el perfil
-  (cada 5 minutos), sin redesplegar. Sin `tools`, todas, como antes.
-- **`LLM_API_KEY` es opcional junto a Vocero 2.0** (vocero-crm 036). Vacía,
-  Nea piensa por el CRM: la llave vive en Ajustes → IA del CRM y no viaja
-  hasta aquí; Nea llama a `{CRM_BASE_URL}/api/bot/llm` con `CRM_BOT_API_KEY`
-  y usa el modelo que el perfil dice (`llm.model`), o `LLM_MODEL` si no trae.
-  Cambiar el modelo en el CRM llega al releer el perfil (cada 5 minutos), sin
-  redesplegar. Sin IA configurada en el CRM (402 `sin_credencial`), Nea calla
-  y le pasa la conversación a una persona (motivo `error`). Con `LLM_API_KEY`
-  puesta no cambia nada. Las notas de voz van por el mismo camino con
-  `LLM_TRANSCRIBE_MODEL` (un modelo que oiga, no `whisper-1`). En modo cloud
-  no cambia nada.
-- `/health` gana `llm`: `"crm"` o `"propia"` (sin llaves ni URLs).
-- **Nea mueve al lead de etapa** (vocero-crm 038): la herramienta
-  `move_stage` llama a `POST /api/bot/stage`. Se le enseña al modelo solo con
-  la clave `etapa` encendida en el perfil y si el contexto trae
-  `lead.nextStages`, y solo hacia esas etapas. El prompt dice cuándo: en el
-  mismo turno de la respuesta, en cuanto el lead dijo qué necesita o pidió
-  avanzar (precio, contratar, empezar, agendar); nunca por un saludo o un
-  «ok». Contra un CRM sin la ruta, la herramienta no existe.
-
-### Se quitó
-
-- `app/webhook.py`, `app/relay.py`, `app/coalesce.py`, el bloque `relay` de
-  `/health` y las variables `META_APP_SECRET`, `VERIFY_TOKEN`,
-  `CRM_WEBHOOK_URL`, `RELAY_BACKOFF_CAP_SECONDS`, `COALESCE_SECONDS`,
-  `TYPING_DELAY_SECONDS` y `TURN_RETRY_DELAYS`. Si siguen en el entorno, Nea
-  lo avisa al arrancar (solo los nombres, nunca los valores).
-- La tabla `relay_queue` se queda, sin uso, por si guardaba algo sin entregar
-  al actualizar. Se borra en una versión siguiente.
-- `POST /webhook` responde **503** (no 404): si Meta todavía le escribe a Nea,
-  reintenta en vez de dar el mensaje por entregado, y el log dice qué hacer.
-
-### Actualizar desde 1.x
-
-En este orden, para no perder mensajes:
-
-1. **CRM** (Vocero 2.0): `BRAIN_DISPATCH_URL=https://<nea>/vocero/dispatch`
-   (o `http://nea:8000/vocero/dispatch` en la misma red) y redeploy.
-   `BOT_API_KEY` ya lo tiene. Después, **enciende el agente** en la pantalla
-   Agente del CRM: desde la 2.0 ese interruptor decide si el CRM le despacha
-   a Nea.
-2. **Meta**: quita el override del número que apuntaba a Nea
-   (`POST /{PHONE_NUMBER_ID}` con `"override_callback_uri": ""`). Los webhooks
-   vuelven al override de la WABA, el del CRM. Compruébalo con
-   `GET /{PHONE_NUMBER_ID}?fields=webhook_configuration`.
-3. **Nea**: la imagen `2.0.0`. Puedes quitar las variables de «Se quitó» y,
-   si quieres que piense con la llave de Ajustes → IA del CRM, también
-   `LLM_API_KEY`.
-
-Si haces el 3 antes que el 2, no se pierde nada: Nea le contesta 503 a Meta,
-Meta reintenta, y `/health` enseña `webhookDeMeta.ultimoEn` hasta que muevas
-el webhook.
-
-Nea 1.x frente a un Vocero 2.0 sigue funcionando mientras no actualices:
-`/api/bot/*` no cambió.
-
-### Arreglado
-
-- **La hora que ve el agente es la del negocio que atiende, no la de la
-  instancia.** Una Nea en modo cloud atiende a negocios de zonas distintas,
-  pero armaba el prompt con `AGENT_TIMEZONE` (la de México) para todos. Los
-  horarios los calcula el CRM en la zona de cada negocio, así que la agenda
-  estaba bien; lo que fallaba era lo que el agente decía de ella: a un lead de
-  un negocio en Colombia le dijo «es de México el huso». Ahora la zona sale
-  del bloque `booking` del contexto (la de Ajustes → Agenda) para el prompt,
-  el seguimiento y las herramientas; «hoy», «mañana» y el calendario también
-  son los del negocio. El prompt la nombra como lugar («hora de Colombia»),
-  nunca con su nombre técnico, y el agente no le calcula al lead la
-  diferencia con su hora. `AGENT_TIMEZONE` queda de respaldo para un CRM que
-  no mande la zona. Sin migraciones ni variables nuevas.
-- **Un mensaje del CRM se lee una sola vez, aunque venga en dos despachos.**
-  En modo cloud, el CRM entrega la ráfaga completa cada vez que despacha: si
-  el cliente escribe mientras un despacho va en vuelo o mientras Nea piensa,
-  el siguiente despacho —con otro `dispatchId`— repite los mensajes
-  anteriores. Nea deduplicaba solo por despacho y el repetido entraba otra vez
-  a su historial («hola», y luego «hola» + la pregunta nueva). Ahora anota
-  cada `messages[].id` cuando lo lee y descarta los que ya leyó; un despacho
-  que no trae nada nuevo no gasta turno. Sin migraciones ni variables nuevas.
-
-## 1.1.0 — 2026-10-08
-
-Dos PR sobre 1.0.0: #36 y #38. Nada se rompe al actualizar.
-
-### Nuevo
-
-- **Nea olvida las conversaciones que el CRM elimina** (#36). En modo cloud,
-  `POST /vocero/dispatch` acepta el evento `conversation.deleted` (misma
-  firma que un despacho) y borra el historial, la fase, los horarios
-  ofrecidos, los envíos pendientes y los despachos guardados de esa
-  conversación, solo en la organización del aviso. El aviso pasa por la cola
-  de despachos: un turno que esperaba termina antes, y un mensaje nuevo de la
-  misma persona empieza después.
-- **Una conversación nueva del CRM no hereda memoria** (#36), en los dos modos. Si
-  la misma persona llega con un `conversation.id` distinto del que Nea
-  recordaba, el turno empieza de cero. Es lo que cubre un aviso que no llegó.
-- **Webhook con el secreto en la ruta: `/webhook/<VERIFY_TOKEN>`** (#38). Para
-  instalar Nea en un servidor que no debe guardar el App Secret de la app de
-  Meta (un Tech Provider que despliega para sus clientes: con ese secreto se
-  administran los webhooks de TODA la app). Funciona como
-  `/api/webhooks/wa/<token>` del CRM: ruta equivocada → 404, y la firma se
-  verifica solo si `META_APP_SECRET` está puesta. Exige un `VERIFY_TOKEN` de
-  32 caracteres o más; con uno más corto esa entrada no abre. `/webhook` no
-  cambia: sigue exigiendo la firma.
-- El `VERIFY_TOKEN` ya no queda en el log de accesos (ni en la ruta ni en el
-  `hub.verify_token` del handshake) (#38).
-
-### Actualizar
-
-Basta con correr la versión nueva (`ghcr.io/kevinrivm/nea-agent:1.1.0`): no
-hay migraciones ni variables nuevas, y `/webhook` se comporta igual que en
-1.0.0.
-
-- **Si tu Nea ya recibe por `/webhook` con `META_APP_SECRET`**, no tienes que
-  cambiar nada.
-- **Si quieres quitar el App Secret de ese servidor** (modo estándar): pon un
-  `VERIFY_TOKEN` de 32 caracteres o más (`openssl rand -hex 32`), redespliega,
-  cambia el override del número a `https://nea.tu-dominio.com/webhook/<VERIFY_TOKEN>`
-  (README, «El webhook de Meta, a Nea») y, cuando un mensaje de prueba llegue,
-  vacía `META_APP_SECRET` y redespliega otra vez. El proxy puede guardar la
-  URL completa en sus propios logs, igual que con el webhook del CRM.
-- **Comprueba**: `/health` con `"version": "1.1.0"`; un mensaje de prueba
-  llega a la bandeja del CRM y Nea contesta.
-
-## 1.0.0 — 2026-09-30
-
-Primera versión con número y primera con imagen publicada. Hasta aquí Nea se
-instalaba construyendo `main`. Lo de abajo cuenta desde el `main` del 18-sep
-(`c90ec87`): los PR #27, #28, #29, #30 y #32. Si tu copia es más vieja, lee también
-el final de «Actualizar».
-
-> **¿Corres el modo estándar con un `main` de entre el 31-ago y el 21-sep?**
-> Tu Nea no le está pasando los mensajes al CRM. Actualiza (ver «Actualizar»).
-
-> **Modo estándar: `META_APP_SECRET` ahora es obligatoria.** Sin ella,
-> `POST /webhook` responde 401 y Nea deja de recibir mensajes. Ponla antes de
-> actualizar.
-
-### Nuevo
-
-- **Imagen en GHCR** (#29). Cada tag `vX.Y.Z` publica
-  `ghcr.io/kevinrivm/nea-agent:X.Y.Z`, además de `X.Y` y `latest`, para
-  `linux/amd64`. Coolify la descarga en vez de construirla en el VPS. El CI
-  construye la imagen en cada PR y en cada push a `main`, sin publicarla.
-- **`/health` dice qué Nea corre y cómo va el relay** (#28): `version`,
-  `commit` y `commitVerified`, `mode` (`estándar`, `cloud` o `multiorg`) y, en
-  modo estándar, `relay` con `pendientes`, `masViejoSegundos` y
-  `ultimoErrorEn`. El código HTTP sigue dependiendo solo de la base.
-- **El turno aguanta una caída del CRM** (#30). Si al empezar un turno el CRM
-  no contesta (red, timeout, 5xx o 429), la misma ráfaga se reintenta tras
-  `TURN_RETRY_DELAYS` (15 s, 45 s, 2 min y 5 min). Lo que el lead escriba
-  mientras tanto sale en una sola respuesta. Si el CRM no vuelve a tiempo, la
-  conversación pasa a un humano (handoff `error`) en cuanto conteste. Los
-  reintentos viven en memoria: un reinicio de Nea los pierde; el mensaje no,
-  porque el relay lo guarda en Postgres.
-- **El cierre sin rumbo se ve en el CRM** (#28). Mientras dura, la ficha del
-  contacto lleva `cierre_sin_rumbo` con la hora (el CRM raíz lo enseña como
-  «Cierre sin rumbo»). Se borra al reabrir.
-- **Prueba de punta a punta contra Vocero raíz** (#30).
-  `scripts/e2e_contra_raiz.py` monta el par en modo estándar, hace de Meta y
-  de cliente, y comprueba nueve historias en el CRM. Cuesta unos centavos de
-  modelo.
-- **Pruebas de `PgStore` contra un Postgres de verdad** (#27):
-  `tests/test_pg_store.py`, con su propio job de CI (`postgres:16`).
+- **Guía de inicio** (#102): primera pantalla con los pasos (agente,
+  proveedor de IA, WhatsApp y, con `AGENDA=on`, agenda), pistas de lo que
+  falta y el botón «Encender». Solo para dueños y administradores.
+- **Ajustes → IA** (#100): proveedor (OpenRouter u otro compatible con
+  OpenAI), modelo y llave cifrada, con «Probar conexión» y «Traer modelos».
+  La llave se pausa sola si el proveedor responde 401 o 402 y la app lo
+  avisa con un enlace para arreglarlo.
+- **Webhook automático y desconectar el número** (#98): guardar la conexión
+  registra el webhook en Meta; «Registrar en Meta» reintenta; «Desconectar»
+  suelta el número sin tocar la bandeja.
+- **Menú agrupado y Ajustes en secciones** (#104): Trabajo, Agente,
+  Resultados y Ajustes; dentro de Ajustes, Canales, Agente y Negocio.
+- **Plantillas explicadas** (#95): para qué sirven, ejemplos, idiomas con
+  nombre, vista previa y avisos de rechazo previsible; un ejemplo realista
+  por variable. **29 monedas** agrupadas en Marca.
+- **`pnpm init-env` y `pnpm doctor`** (#97): el `.env` con los secretos ya
+  generados, y una comprobación línea por línea del entorno, la base, el
+  volumen y la conexión con Meta.
+- **Manifests para Render, Fly y Railway** (#99), con botón «Deploy to
+  Render».
+- **`AGENTS.md`** (#94): la guía neutral del repo para cualquier asistente o
+  persona; `CLAUDE.md` delega en ella.
+- **Respuestas de botón** (#101): los botones de plantilla y las respuestas
+  interactivas entran a la bandeja como texto, abren la ventana de 24 h y
+  llegan al agente.
 
 ### Cambió
 
-- **`META_APP_SECRET` es obligatoria en modo estándar** (#32). Antes, vacía,
-  `/webhook` aceptaba cualquier POST sin firma: quien conociera la URL podía
-  hacerse pasar por un lead y hacer que Nea le contestara y gastara modelo.
-  Ahora, sin secreto o con la firma ausente o inválida, responde 401. En modo
-  cloud `/webhook` ya no se monta: la única entrada es el despacho firmado del
-  CRM.
-- **La imagen corre sin root** (#32): usuario `nea`, UID y GID 10001.
-- **Límites de entrada** (#32). El cuerpo de `/webhook` y del despacho, hasta
-  2 MiB (más, 413). La descarga de un adjunto, hasta 16 MiB y 30 s (antes,
-  60 s). El texto de un PDF se extrae en un proceso aparte, con 6 s de tope y
-  dos a la vez, para que un PDF pesado no frene los turnos de los demás.
-- **El candado de cierre se reabre** (#28). Antes, tras la despedida había
-  24 h de silencio pasara lo que pasara: un «¿cuánto cuesta?» se quedaba sin
-  respuesta. Ahora el relleno («gracias», «ok 👍») se sigue contestando con
-  silencio durante `STALL_COOLDOWN_HOURS`, pero un mensaje con contenido
-  reabre en el acto y los contadores vuelven a cero. Los umbrales se ajustan
-  con `STALL_MAX_TURNS`, `STALL_FILLER_STREAK` y `STALL_COOLDOWN_HOURS`, con
-  los valores de siempre por defecto. Y «ok 👍» o «va, gracias 🙏» ahora
-  cuentan como relleno.
-- **Tope por intento al modelo** (#27): `LLM_TIMEOUT_SECONDS` (45 s), al
-  conversar y al transcribir, y el SDK ya no reintenta por su cuenta. Antes un
-  proveedor colgado podía tener al lead media hora en «escribiendo…» antes
-  del handoff `error`.
-- **La agenda se vuelve a preguntar** cada `AGENDA_PROBE_TTL_SECONDS` (60 s)
-  (#27). Encender o apagar `AGENDA` en el CRM ya no exige reiniciar Nea.
-- **El relay se pone al día en un minuto** (#27, #30). La espera entre
-  intentos tiene tope de `RELAY_BACKOFF_CAP_SECONDS` (60 s; antes, 15 min), y
-  un barrido vacía toda la cola vencida, no solo 50 filas.
-- **Sin agenda v2, Nea no ofrece recordatorios** (#30). El CRM raíz no los
-  manda: `book_session` ya no pide `recordatorios_aceptados` y el prompt dice
-  que por aquí no hay recordatorios. Con la agenda v2 de Vocero Cloud todo
-  sigue igual.
-- **Un NUNCA más en `app/prompt.py`** (#30): no ofrecer ni prometer una acción
-  que Nea no puede hacer con sus herramientas (llamar, mandar un correo,
-  escribir más tarde, avisar, apartar un lugar). Ninguno de los NUNCA de antes
-  se relajó.
-- **La confirmación de la cita dice «Enlace de la reunión:»** (#27), no
-  «Enlace de Zoom:»: el CRM no dice de qué proveedor es la sala.
-- **Dependencias con versión exacta** en `requirements*.txt` (#27): lo que
-  pasó las pruebas es lo que se despliega.
+- `/api/health` dice qué banderas están encendidas y si el volumen de
+  adjuntos se puede escribir (#96).
+- La imagen deja fuera los snapshots de `drizzle/meta` (1.2 MB) (#96).
+- Next 15.5.27 en el lockfile; `pnpm audit --prod` pasa de 33 a 21 entradas,
+  todas de desarrollo o transitivas (#101).
+- El interruptor del Agente solo se bloquea para encender sin IA; apagar se
+  puede siempre (#100).
+- El reloj de la agenda ya no se corta en pantallas chicas (#95).
 
 ### Corregido
 
-- **Modo estándar: el relay no le pasaba nada al CRM** (#27). Desde `95549c8`
-  (31-ago, #12), `PgStore.due_relays` leía columnas que `relay_queue` no tiene
-  y el worker se tragaba el error cada 5 s. Sin relay, ningún mensaje entrante
-  llegaba a la bandeja, los estados de entrega no avanzaban, a un contacto
-  nuevo Nea no le contestaba nunca (`/api/bot/context` daba 404) y a los
-  conocidos solo mientras su último mensaje relevado tuviera menos de 24 h. El
-  modo cloud no usa relay y no se vio afectado.
-- **Markdown en WhatsApp** (#28). El lead veía `**$800**`, `## Precios`,
-  tablas con barras y `[Agenda](https://…)`. Ahora `app/formato.py` lo
-  convierte al formato de WhatsApp antes de enviar, en el turno y en el
-  seguimiento, sin tocar URL ni correos. El historial guarda lo convertido.
-- **Quien escribe sin compartir su número no recibía respuesta** (#28). Nea
-  mandaba el BSUID pelón y el CRM lo guarda como `bsuid:<id>`: el contexto
-  daba 404. `ALLOWED_WA_IDS` y `TESTER_WA_IDS` aceptan el BSUID con o sin el
-  prefijo.
-- **Un turno que revienta** por algo inesperado deja, además del log, un
-  handoff `error` en la conversación (#27).
-- **Un 404 del CRM ya no apaga la agenda de todo el proceso** (#27). Solo el
-  404 vacío quiere decir «agenda apagada»; un 404 con el sobre de error del
-  CRM es una conversación o una cita que no existe.
-- **Contra un CRM que ignora la fecha pedida, Nea no niega la tarde** (#30).
-  Dice qué horarios ve, avisa que es solo una parte y ofrece que el equipo
-  confirme la hora o revisar otro día, en vez de «mañana solo tengo por la
-  mañana».
-- **El token del webhook del CRM ya no queda en el log de Nea** (#30). httpx
-  escribía la URL de cada relay, con el token en la ruta.
-- **Modo cloud: un despacho confirmado ya no se pierde si Nea se cae** (#32).
-  Antes Nea respondía 200 al CRM con el turno solo en memoria. Ahora lo guarda
-  en `dispatch_inbox` antes de confirmar y un worker lo retoma al arrancar. Un
-  turno que se cortó a medias pasa a un humano en vez de repetirse, para no
-  mandarle dos veces lo mismo al lead.
+- Adjuntos servidos con `nosniff` y `CSP sandbox`; `inline` solo para tipos
+  previsualizables (#101).
+- Los fixtures de pruebas usan un número ficticio (#101).
 
-### Actualizar
+## 1.4.0 — 2026-09-30
 
-Basta con correr la versión nueva: las migraciones se aplican solas y todas
-las variables nuevas traen default. En modo cloud no hay relay: los puntos 2
-y 6 no aplican.
+### Actualizar desde 1.3.0
 
-**Antes, en modo estándar: comprueba que `META_APP_SECRET` tenga el App
-Secret de tu app de Meta** (la misma del token). Si estaba vacía, desde esta
-versión `POST /webhook` responde 401 y en el log de Nea aparece
-`firma inválida o ausente en el webhook — 401`.
+Actualizar es redesplegar: no hay variables obligatorias nuevas ni nada que
+reconectar. Respalda la base antes, como en cualquier actualización.
 
-1. **¿Qué versión corres?** Si tu `/health` no trae `version`, tu Nea es de
-   antes del 22-sep. Si dice `dev`, se construyó sin los build args.
-2. **Modo estándar con un `main` de entre el 31-ago y el 21-sep** (de
-   `95549c8` a antes de #27): el CRM no está recibiendo tus mensajes. En el
-   log de Nea se ve como `relay: fallo procesando la cola` con
-   `KeyError: 'organization_id'`, cada 5 s. Al actualizar, el primer barrido
-   le entrega al CRM lo que tenga menos de 24 h y abandona lo más viejo (su
-   cuerpo crudo se queda en `relay_queue`). A los leads que escribieron esos
-   días y no recibieron respuesta nadie les contesta solo: revísalos en la
-   bandeja.
-3. **Pásate a la imagen** (recomendado). En Coolify, lo más limpio es una app
-   nueva: + New → Docker Image, `ghcr.io/kevinrivm/nea-agent:1.0.0`, con las
-   mismas variables, la misma base y el mismo dominio. Detén la vieja antes de
-   arrancar la nueva: dos Nea contra la misma base reenvían dos veces lo
-   pendiente. No pongas `NEA_VERSION` en las variables y deja `PORT` en 8000.
-   La imagen corre como UID 10001: si montas el `BRIEF_PATH` desde un volumen,
-   que ese usuario pueda leerlo.
-   Si prefieres construir, hazlo desde el tag `v1.0.0` con los build args del
-   README.
-4. **Migraciones.** Se aplican solas al arrancar, antes de atender:
-   - `006_stall_reapertura.sql`: `bot_conversation.stall_since_message_id`
-     (`BIGINT NOT NULL DEFAULT 0`).
-   - `007_relay_ultimo_error.sql`: `relay_queue.last_error_at` y su índice
-     parcial.
-   - `008_dispatch_inbox.sql`: la tabla `dispatch_inbox`. Solo la usa el modo
-     cloud; en modo estándar se queda vacía.
+- **Cómo.** En Coolify, con la app que construye desde el repo (la de la guía
+  hasta 1.3.0), redespliega. Con docker compose, `git pull` y
+  `docker compose up -d`: el compose ahora descarga la imagen publicada. Con
+  `--build` la sigue construyendo desde el código, que es lo que necesitas en
+  un VPS ARM (la imagen es `linux/amd64`) o si tu fork tiene cambios propios.
+- **Migraciones.** Corren solas al arrancar el contenedor, sin
+  Pre-Deployment Command. Hay dos nuevas, y las dos solo agregan:
+  - `0013_nombre_del_contacto`: la columna `contact.name_source`.
+  - `0014_anuncio_de_origen`: la columna `ad_attribution.image_asset_id`, su
+    llave foránea a `media_asset` y un índice.
 
-   Son aditivas (`ADD COLUMN IF NOT EXISTS`, `CREATE TABLE IF NOT EXISTS`): no
-   borran ni reescriben datos.
-5. **Variables nuevas.** Ninguna es obligatoria (la que cambió es
-   `META_APP_SECRET`, arriba):
+  Van en una sola transacción: si una falla no queda ninguna, la app no
+  arranca y el log dice `[migrate] falló tras varios intentos`. Si tu fork
+  tiene migraciones propias posteriores a la `0012`, comprueba después que
+  existan esas dos columnas: el migrador salta en silencio toda migración
+  cuyo `when` no sea mayor que el de la última aplicada. Si falta una, corre a
+  mano su SQL de `drizzle/`.
+- **Nombres de contacto.** El nombre ahora sigue al perfil de WhatsApp, salvo
+  que lo haya escrito una persona en el CRM. La `0013` deja como «del perfil»
+  todos los contactos que ya existían: uno que renombraste a mano tomará su
+  nombre de WhatsApp la próxima vez que escriba. Para conservar esos nombres,
+  corre esto en la consola de Postgres justo después de actualizar (antes la
+  columna no existe; con docker compose,
+  `docker compose exec postgres psql -U postgres -d vocero`):
 
-   | Variable | Default | Antes |
-   |---|---|---|
-   | `LLM_TIMEOUT_SECONDS` | `45` | Hasta 600 s por petición, y el SDK reintentaba dos veces más |
-   | `AGENDA_PROBE_TTL_SECONDS` | `60` | Se preguntaba solo al arrancar |
-   | `STALL_MAX_TURNS` | `14` | 14, fijo |
-   | `STALL_FILLER_STREAK` | `3` | 3, fijo |
-   | `STALL_COOLDOWN_HOURS` | `24` | 24, fijo |
-   | `TURN_RETRY_DELAYS` | `15,45,120,300` | Sin reintentos: el turno se perdía |
-   | `RELAY_BACKOFF_CAP_SECONDS` | `60` | 900 (15 min) |
+  ```sql
+  UPDATE "contact" SET "name_source" = 'manual';
+  ```
 
-6. **Si Meta le manda los webhooks a Nea por un override de la WABA, pásalo
-   al del número** (README, «El webhook de Meta, a Nea»). Vocero raíz hasta
-   1.3.0 lo borra cada vez que guardas la conexión de WhatsApp, y Nea deja de
-   recibir sin aviso. Revisa a dónde llegan hoy con
-   `GET /{PHONE_NUMBER_ID}?fields=webhook_configuration`.
-7. **Si tu fork cambió `app/prompt.py`**, trae lo que agregó #30: el NUNCA de
-   las acciones sin herramienta y el aviso de que no hay recordatorios. Es lo
-   que evita que Nea prometa recordatorios que la raíz no manda.
-8. **Comprueba**: `/health` con `"version": "1.0.0"`, `"mode": "estándar"` y
-   `relay.pendientes` bajando a 0; un mensaje de prueba llega a la bandeja del
-   CRM y Nea contesta.
+  Con eso ningún contacto viejo sigue a su perfil; los nuevos, sí. Quien
+  escriba entre el arranque y el `UPDATE` ya habrá tomado su nombre de perfil.
+- **Adjuntos, logo e icono.** La imagen los guarda en `/data/media` (trae
+  `MEDIA_DIR=/data/media`) y arranca como root solo para darle el volumen de
+  `/data` al usuario de la app. Qué hacer según cómo esté tu contenedor:
 
-**Si tu copia es anterior al 18-sep**, también te llegan:
+  | Tu instancia en 1.3.0 | Qué hacer |
+  |---|---|
+  | `MEDIA_DIR` sin definir o `./.dev-media` (la guía y el `.env.example` de 1.3.0) | Quita `MEDIA_DIR` si la tienes y monta un volumen en `/data` si aún no hay (en Coolify, un persistent storage). No hay nada que rescatar: esa ruta no era escribible y guardar un adjunto, el logo o el icono fallaba. |
+  | Volumen en `/data/media`, con `MEDIA_DIR=/data/media` (la nota del `.env.example` de 1.3.0) | No muevas el volumen: 1.4.0 usa esa misma ruta y le arregla los permisos al arrancar. `MEDIA_DIR` ya sobra. Para montarlo en `/data`, como dice la guía nueva, primero pasa su contenido a una carpeta `media/` dentro del volumen. |
+  | `MEDIA_DIR=/data/media` sin volumen | Tus archivos están dentro del contenedor y el redeploy los borra. Sácalos antes de actualizar (`docker cp <contenedor>:/data/media ./media`); con el volumen ya en `/data`, devuélvelos (`docker cp ./media/. <contenedor>:/data/media`) y reinicia la app para que el contenedor les dé dueño. |
+  | docker compose | Nada: el compose nuevo monta el volumen `vocero_app_data` en `/data`. El de 1.3.0 no montaba volumen para la app, así que no había archivos guardados. |
 
-- `LLM_REASONING_EFFORT` (`minimal`) y `LLM_PROVIDER_SORT` (`throughput`)
-  (18-sep, #24). Van en cada llamada al modelo; OpenRouter los entiende, y si
-  un proveedor los rechaza, Nea deja de mandarlos y reintenta. Vacíos, no se
-  mandan.
-- Las migraciones `004_multiorg.sql` y `005_pending_dispatch.sql` (31-ago), y
-  la `003_stalled.sql` (19-ago). También se aplican solas.
-- Los nombres `LLM_*` (31-ago, #11). Los `OPENAI_*` siguen funcionando.
-- El modo cloud (31-ago, #9 y #12). Sin `VOCERO_MODE` no se activa nada.
-- `TESTER_WA_IDS` (19-ago, #5). El comando `/reset` ya no cuelga de
-  `ALLOWED_WA_IDS`: si lo usas, pon tu número también en `TESTER_WA_IDS`.
+  La imagen ya no declara `USER`: `docker exec` entra como root. Para actuar
+  como la app, `docker exec -u vocero …`.
+- **Variables.** Ninguna obligatoria nueva.
+  - `BRAIN_HEALTH_URL` (opcional): el `/health` de tu cerebro externo, p. ej.
+    `http://nea:8000/health`, para la tarjeta «Quién responde a tus
+    clientes». Tiene que ser una URL `http://` o `https://` completa; si no
+    lo es, la tarjeta lo marca como problema de configuración y el resto de
+    la app sigue funcionando ([#74]). Vacía cuenta como no definida.
+  - `SOURCE_COMMIT` escrito a mano en la plataforma: si el build no trae su
+    propio commit, la barra lo marca «commit sin verificar» y `/api/health`
+    responde `"commitVerified":false`. Quítalo, o pásalo como build arg en
+    cada build (README → Versiones). La imagen publicada ya trae el suyo.
+  - Solo docker compose: `VOCERO_CRM_VERSION` elige la versión de la imagen
+    (por defecto, la de esta versión). Y el compose ahora le pasa a la app
+    `CHANNELS`, `AGENDA`, `ATRIBUCION`, `BOT_API_KEY` y `BRAIN_HEALTH_URL`: en
+    1.3.0 no le llegaban, así que lo que tengas escrito de ellas en tu `.env`
+    empieza a surtir efecto.
+- **Banderas.** `AGENDA`, `ATRIBUCION` y `CHANNELS` no cambian de nombre y
+  siguen apagadas por defecto. Cambia lo que cubre `ATRIBUCION`: de qué
+  anuncio llegó cada conversación (titular, texto, creativo, enlace) se guarda
+  y se ve siempre, con o sin la bandera. Sin ella no se guarda el `ctwa_clid`
+  ni se le reporta nada a Meta.
+- **Override del webhook (cerebro externo o modo agencia).** En 1.3.0, cada
+  vez que guardabas la conexión en Configuración → WhatsApp (o rotabas el
+  token) se re-suscribía la app sin cuerpo, que es como Meta borra el
+  override de callback de la WABA. 1.4.0 ya no lo hace, pero no devuelve uno
+  que ya se perdió: revisa `GET /{WABA_ID}/subscribed_apps` y, si falta
+  `override_callback_uri`, vuelve a ponerlo con la URL de quien debe recibir
+  los webhooks (la llamada está en README → modo agencia, paso 4).
+- **Si conectas tu propio cerebro por `/api/bot/*`.**
+  - Límite nuevo: primero se autentica y después se cuenta. Con la llave
+    buena hay 1200 llamadas por minuto (antes 600, contadas antes de mirar la
+    llave). Las fallidas, sin llave o con una mala, se frenan por IP: pasadas
+    30 en un minuto responden `429 rate_limited` («Demasiados intentos
+    fallidos») en vez de `401`. Si tu bot recibe ese 429, revisa su llave.
+  - `GET /api/bot/availability` sin `limit`, `perDay` ni `days` ahora
+    devuelve los defaults del contrato (12 huecos, 3 por día, 5 días); antes,
+    un solo hueco.
+  - Lo demás es aditivo (`booking` en el contexto, `date` y `query` en los
+    huecos): un bot que no lee los campos nuevos no nota nada.
+- **Imagen publicada.** `ghcr.io/kevinrivm/vocero-crm:1.4.0`, solo
+  `linux/amd64`, con el commit horneado. Es el camino nuevo para instalar
+  ([INSTALL-IA.md](INSTALL-IA.md)). Una instancia que construye desde el repo
+  puede seguir así. Si la pasas a la imagen con otra app de Coolify, su
+  volumen de `/data` es otro: copia los archivos antes de apagar la vieja.
+
+### Nuevo
+
+- **Resultados** (`/results`, en el menú, sin bandera): ventas, origen y
+  anuncios, el agente y lo que se está cayendo, contra el periodo anterior.
+  Todo sale de la base propia: sin gasto publicitario ni conectores, y el
+  Laboratorio no cuenta. Las citas del agente, solo con `AGENDA`. Los días se
+  cortan en la zona de la agenda; si no hay agenda configurada, en
+  `America/Mexico_City`. ([#70])
+- **De qué anuncio llegó cada conversación**, sin bandera: marca «Anuncio ·
+  titular» y filtro «Anuncios» en la bandeja; tarjeta con el creativo, el
+  texto y el enlace en el panel del contacto y en el cajón del trato. La
+  imagen del creativo se copia al volumen (solo de hosts de Meta, hasta
+  300 KB). Solo WhatsApp. ([#67])
+- **Calendario de Citas** (con `AGENDA`): vistas Día, Semana, Mes y Lista en
+  la zona del negocio, panel de la cita con «Abrir conversación», reprogramar
+  con todos los huecos de la ventana y bloquear un horario tocando la
+  rejilla. `GET /api/bookings` acepta `from` y `to` (hasta 92 días); sin
+  ellos responde igual que antes. ([#66])
+- **«Quién responde a tus clientes»**, arriba de la pantalla Agente: el
+  agente incluido, tu cerebro externo o los dos, con aviso rojo porque el
+  cliente recibiría dos respuestas. `GET /api/agent/brain-status`. ([#69])
+- Para tu bot, con `AGENDA`: `GET /api/bot/context` trae las citas del lead
+  (`booking`), y `GET /api/bot/availability` con `date=AAAA-MM-DD` da las
+  horas libres de ese día, con `query` diciendo hasta dónde llega lo
+  consultado. ([#65], [#71])
+- El logo que subes se ve en la barra lateral, en el login y en la vista
+  previa de Configuración → Marca. ([#64])
+- La imagen de Docker se construye en cada PR y se publica en GHCR con cada
+  tag. ([#68])
+- `/api/health` dice si el commit salió del build (`commitVerified`). ([#65])
+
+### Cambió
+
+- La barra lateral es azul marino en los dos temas, y el tema oscuro sube la
+  página un escalón sobre ella: diálogos y cajones flotan, su texto pasa AA de
+  contraste y el foco por teclado se ve. Con un acento propio claro (verde,
+  amarillo…), la tinta de botones y distintivos pasa de blanco a casi negro
+  cuando el blanco no llega a 4.5:1. ([#64], [#72])
+- El Agente y «IA en esta conversación» usan el mismo interruptor, con el
+  pomo dentro de la pista. ([#64])
+- El nombre del contacto sigue a su perfil de WhatsApp, salvo que lo haya
+  escrito una persona. ([#56])
+- `/api/bot/*` autentica antes de contar: 1200 llamadas por minuto con llave
+  válida y 30 fallidas por minuto por IP. ([#73])
+- `ATRIBUCION` ya no decide si ves el anuncio de origen: solo el `ctwa_clid`,
+  la Conversions API y Configuración → Anuncios. ([#67])
+- La imagen trae `MEDIA_DIR=/data/media` y un entrypoint que deja `/data`
+  escribible antes de bajar al usuario de la app. ([#63])
+- La insignia de versión marca «commit sin verificar» cuando el commit no
+  salió del build. ([#65])
+- docker compose usa la imagen publicada, `--build` la construye desde el
+  código, y ahora le pasa a la app `CHANNELS`, `AGENDA`, `ATRIBUCION`,
+  `BOT_API_KEY` y `BRAIN_HEALTH_URL`.
+
+### Corregido
+
+- Cuando el patrón de respaldo detecta que el cliente pide un humano, el
+  agente le avisa antes del traspaso («Claro, te comunico con una persona del
+  equipo. En breve te responden.»); antes lo traspasaba sin mandarle nada.
+  ([#65])
+- El agente incluido reserva el horario que el cliente elige; antes no
+  acertaba el instante y la conversación entraba en bucle. ([#54])
+- A un contacto sin teléfono (solo BSUID) se le responde; antes Meta
+  devolvía 131026. ([#57])
+- Con Postgres fuera de UTC, un saliente enseñaba otra hora en el hilo que en
+  la lista. Las filas escritas antes conservan su valor; en Docker nunca
+  pasó. ([#58])
+- En la instalación por defecto, guardar un adjunto, el logo o el icono
+  fallaba por permisos. ([#63])
+- Guardar la conexión de WhatsApp, o rotar el token, borraba el override de
+  callback de la WABA y dejaba sin mensajes a un cerebro externo. ([#63])
+- La prueba de conexión de Google Calendar daba 403 con credenciales
+  correctas, y un cambio de credenciales de Google o Zoom tardaba hasta una
+  hora en surtir efecto. ([#55])
+- A «¿mañana en la tarde?» tu bot solo veía las primeras horas del día:
+  `/api/bot/availability` ignoraba `date`. ([#71])
+- `GET /api/bot/context?waIdentity=bsuid:…` respondía 404 a quien escribió
+  primero con teléfono. ([#73])
+- 600 llamadas por minuto sin llave dejaban a tu bot en 429. ([#73])
+- Calendario: el bloqueo tomaba la hora del navegador, reprogramar ofrecía
+  solo 12 huecos, cada evento recalculaba la disponibilidad y la lista se
+  quedaba en las últimas 200 citas. ([#66])
+- El pomo del interruptor del Agente no se veía y, encendido, se salía de la
+  pista. ([#56], [#64])
+
+Gracias a @Diony7004, @federicorv25, @fondeur27-09-73, @dev-bahari,
+@davidcaroo y @dean-wya por los reportes, los diagnósticos y el código.
+
+## 1.3.0 y anteriores
+
+Sin entrada aquí: lo anterior está en el tag
+[`v1.3.0`](https://github.com/kevinrivm/vocero-crm/tree/v1.3.0) (2026-09-01).
+
+[#54]: https://github.com/kevinrivm/vocero-crm/pull/54
+[#55]: https://github.com/kevinrivm/vocero-crm/pull/55
+[#56]: https://github.com/kevinrivm/vocero-crm/pull/56
+[#57]: https://github.com/kevinrivm/vocero-crm/pull/57
+[#58]: https://github.com/kevinrivm/vocero-crm/pull/58
+[#63]: https://github.com/kevinrivm/vocero-crm/pull/63
+[#64]: https://github.com/kevinrivm/vocero-crm/pull/64
+[#65]: https://github.com/kevinrivm/vocero-crm/pull/65
+[#66]: https://github.com/kevinrivm/vocero-crm/pull/66
+[#67]: https://github.com/kevinrivm/vocero-crm/pull/67
+[#68]: https://github.com/kevinrivm/vocero-crm/pull/68
+[#69]: https://github.com/kevinrivm/vocero-crm/pull/69
+[#70]: https://github.com/kevinrivm/vocero-crm/pull/70
+[#71]: https://github.com/kevinrivm/vocero-crm/pull/71
+[#72]: https://github.com/kevinrivm/vocero-crm/pull/72
+[#73]: https://github.com/kevinrivm/vocero-crm/pull/73
+[#74]: https://github.com/kevinrivm/vocero-crm/pull/74
