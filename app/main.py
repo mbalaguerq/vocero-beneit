@@ -290,6 +290,11 @@ def create_app(ctx: AppContext | None = None) -> FastAPI:
     app.include_router(dispatch_router)
     app.include_router(webhook_retirado_router)
 
+    @app.get("/")
+    async def root():  # type: ignore[no-untyped-def]
+        """Endpoint lleuger per a les sondes de connectivitat del connector."""
+        return {"status": "ok"}
+
     @app.get("/health")
     async def health(request: Request):  # type: ignore[no-untyped-def]
         # El código HTTP lo decide SOLO la base: es lo que mira el HEALTHCHECK

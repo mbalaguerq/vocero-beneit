@@ -35,6 +35,18 @@ async def _health(ctx) -> tuple[int, dict, str]:
     return resp.status_code, resp.json(), resp.text
 
 
+async def test_arrel_respon_per_a_la_sonda_de_connectivitat():
+    ctx = make_ctx()
+    app = create_app(ctx=ctx)
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="http://bot.test"
+    ) as client:
+        resp = await client.get("/")
+    await ctx.crm.aclose()
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+
+
 async def test_por_defecto():
     status, cuerpo, _ = await _health(make_ctx())
     assert status == 200
