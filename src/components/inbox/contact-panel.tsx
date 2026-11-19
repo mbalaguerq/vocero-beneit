@@ -328,7 +328,7 @@ export function ContactPanel({
         {/* Stepper de etapa */}
         {stages.length > 0 && leadId && (
           <section className="border-b p-4">
-            <p className="kicker mb-3">Etapa del pipeline</p>
+            <p className="kicker mb-3">Etapa del embudo</p>
             <ol>
               {stages.map((s, i) => {
                 const done = currentIndex >= 0 && i < currentIndex;
@@ -380,7 +380,7 @@ export function ContactPanel({
           <p className="kicker mb-2">Notas</p>
           <Textarea
             rows={5}
-            placeholder="Notas internas sobre este contacto…"
+            placeholder="Notes internes sobre aquest contacte…"
             value={notes}
             disabled={!notesLoaded}
             onChange={(e) => setNotes(e.target.value)}
@@ -392,7 +392,7 @@ export function ContactPanel({
             disabled={savingNotes || !notesLoaded}
             onClick={() => void saveNotes()}
           >
-            {savingNotes ? "Guardando…" : "Guardar notas"}
+            {savingNotes ? "Desant…" : "Desa les notes"}
           </Button>
         </section>
 

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { parseEnv } from "node:util";
+import { parseEnv } from "./parse-env";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { safeParseEnv } from "@/lib/env";
 import {

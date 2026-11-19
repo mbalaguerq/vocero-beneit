@@ -49,7 +49,7 @@ export function AgendaList({
         icon={CalendarDays}
         className="min-h-0 flex-1 rounded-lg border bg-card p-8"
         title={`Nada agendado del ${spanLabel(range)}`}
-        description="Aquí aparecen las citas que agenda la IA o tu equipo. El horario que se ofrece se configura en Ajustes → Agenda."
+        description="Aquí aparecen las citas que agenda la IA o tu equipo. Los horarios disponibles se configuran en Ajustes → Agenda."
       />
     );
   }

@@ -252,6 +252,7 @@ export const lead = pgTable(
      */
     priority: text("priority", { enum: ["alta", "media", "baja"] }),
     priorityUpdatedAt: timestamp("priority_updated_at"),
+    archivedAt: timestamp("archived_at"),
     lastActivityAt: timestamp("last_activity_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

@@ -235,7 +235,7 @@ export function InboxClient({
   const sendText = useCallback(
     async (text: string): Promise<string | null> => {
       const conversationId = selectedIdRef.current;
-      if (!conversationId) return "Sin conversación seleccionada";
+      if (!conversationId) return "No hi ha cap conversa seleccionada";
 
       const tmpId = `tmp_${++tmpSeq.current}`;
       setPending((prev) => [
@@ -257,14 +257,14 @@ export function InboxClient({
         }).catch(() => null);
         if (!res) {
           drop();
-          return "Sin conexión con el servidor";
+          return "Sense connexió amb el servidor";
         }
         if (!res.ok) {
           const data = (await res.json().catch(() => null)) as {
             error?: { message?: string };
           } | null;
           drop();
-          return data?.error?.message ?? "No se pudo enviar el mensaje";
+          return data?.error?.message ?? "No s'ha pogut enviar el missatge";
         }
         // Primero traer el mensaje real, después quitar el provisional: al
         // revés, la burbuja parpadearía.
@@ -298,18 +298,18 @@ export function InboxClient({
   const deleteConversation = useCallback(
     async (alsoContact: boolean): Promise<string | null> => {
       const id = selectedIdRef.current;
-      if (!id) return "Sin conversación seleccionada";
+      if (!id) return "No hi ha cap conversa seleccionada";
       const res = await fetch(
         `/api/conversations/${id}${alsoContact ? "?contacto=1" : ""}`,
         { method: "DELETE" }
       ).catch(() => null);
-      if (!res) return "Sin conexión con el servidor";
+      if (!res) return "Sense connexió amb el servidor";
       // 404 = otra persona la eliminó primero: para quien lo pidió, ya está.
       if (!res.ok && res.status !== 404) {
         const data = (await res.json().catch(() => null)) as {
           error?: { message?: string };
         } | null;
-        return data?.error?.message ?? "No se pudo eliminar la conversación";
+        return data?.error?.message ?? "No s'ha pogut eliminar la conversa";
       }
       quitarConversacion(id);
       void refetchConversations();
@@ -417,9 +417,9 @@ export function InboxClient({
         ) : (
           <div className="thread-bg flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
             <p className="font-serif text-[24px] italic leading-tight text-text-2">
-              Elige una conversación para ver el hilo
+              Tria una conversa per veure el fil
             </p>
-            <p className="kicker">Bandeja · tiempo real</p>
+            <p className="kicker">Safata · temps real</p>
           </div>
         )}
       </section>

@@ -21,7 +21,9 @@ import { ContactAvatar } from "@/components/avatar";
 import { Button } from "@/components/ui/button";
 import { formatTime } from "@/components/inbox/helpers";
 import { StageManager } from "./stage-manager";
+import { stageLabel } from "@/lib/stage-labels";
 import { LossReasonDialog } from "./loss-reason-dialog";
+import { WonResultDialog } from "./won-result-dialog";
 import { AmountDialog } from "./amount-dialog";
 import { PriorityBadge } from "./priority-picker";
 import { LeadDrawer } from "./lead-drawer";
@@ -40,12 +42,19 @@ export type BoardLead = {
 
 export function PipelineClient() {
   const [stages, setStages] = useState<StageDto[]>([]);
-  const [currency, setCurrency] = useState("MXN");
+  // Instal·lacions Beneït treballa en euros. Ignorem valors antics de la
+  // demo (MXN) perquè no contaminin la interfície ni els nous registres.
+  const [currency] = useState("EUR");
   const [leads, setLeads] = useState<BoardLead[]>([]);
   const [activeLead, setActiveLead] = useState<BoardLead | null>(null);
   const [managing, setManaging] = useState(false);
   /** Arrastre hacia una etapa perdida, esperando el motivo. */
   const [pendingLoss, setPendingLoss] = useState<{
+    leadId: string;
+    stageId: string;
+    name: string;
+  } | null>(null);
+  const [pendingWon, setPendingWon] = useState<{
     leadId: string;
     stageId: string;
     name: string;
@@ -72,7 +81,6 @@ export function PipelineClient() {
       leads: BoardLead[];
       currency?: string;
     };
-    if (data.currency) setCurrency(data.currency);
     setStages(data.stages);
     setLeads(data.leads);
   }, []);
@@ -110,6 +118,15 @@ export function PipelineClient() {
     void refetch();
   }
 
+  async function moverLeadAmbResultat(lead: BoardLead, stageId: string, result: string, note: string) {
+    await fetch(`/api/contacts/${lead.contact.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ficha: { Resultat: note ? `${result}: ${note}` : result } }),
+    }).catch(() => null);
+    await moverLead(lead.id, stageId);
+  }
+
   async function guardarMonto(leadId: string, cents: number | null) {
     setLeads((prev) =>
       prev.map((l) => (l.id === leadId ? { ...l, amountCents: cents } : l))
@@ -118,7 +135,7 @@ export function PipelineClient() {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       // Sin `stageId`: esto NO mueve la tarjeta, solo escribe el importe.
-      body: JSON.stringify({ amountCents: cents }),
+      body: JSON.stringify({ amountCents: cents, currency: "EUR" }),
     }).catch(() => null);
     void refetch();
   }
@@ -135,6 +152,14 @@ export function PipelineClient() {
     void refetch();
   }
 
+  async function retirarDeLembut(leadId: string) {
+    if (!window.confirm("Retirar aquesta petició de l'embut? El contacte i l'historial es conservaran.")) return;
+    const response = await fetch(`/api/pipeline/leads/${leadId}`, { method: "DELETE" }).catch(() => null);
+    if (!response?.ok) return;
+    setAbiertoId(null);
+    await refetch();
+  }
+
   async function onDragEnd(event: DragEndEvent) {
     setActiveLead(null);
     const leadId = String(event.active.id);
@@ -148,6 +173,10 @@ export function PipelineClient() {
     const destino = stages.find((s) => s.id === overStage);
     if (destino?.kind === "lost") {
       setPendingLoss({ leadId, stageId: overStage, name: lead.contact.name });
+      return;
+    }
+    if (destino?.kind === "won") {
+      setPendingWon({ leadId, stageId: overStage, name: lead.contact.name });
       return;
     }
 
@@ -167,15 +196,19 @@ export function PipelineClient() {
       setPendingLoss({ leadId, stageId, name: lead.contact.name });
       return;
     }
+    if (destino?.kind === "won") {
+      setPendingWon({ leadId, stageId, name: lead.contact.name });
+      return;
+    }
     void moverLead(leadId, stageId);
   }
 
   return (
     <div className="flex h-full flex-col">
       <header className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 sm:px-6 sm:py-4">
-        <h2 className="text-[17px] font-bold tracking-tight">Pipeline</h2>
+        <h2 className="text-[17px] font-bold tracking-tight">Embut</h2>
         <Button variant="outline" size="sm" onClick={() => setManaging(true)}>
-          <Settings2 className="h-4 w-4" /> Gestionar etapas
+          <Settings2 className="h-4 w-4" /> Gestionar etapes
         </Button>
       </header>
 
@@ -228,13 +261,14 @@ export function PipelineClient() {
           onMoveStage={(stageId) => moverDesdeCajon(abierto.id, stageId)}
           onAmount={(cents) => void guardarMonto(abierto.id, cents)}
           onPriority={(p) => void guardarPrioridad(abierto.id, p)}
+          onArchive={() => void retirarDeLembut(abierto.id)}
         />
       )}
 
       {editandoMonto && (
         <AmountDialog
           leadName={editandoMonto.contact.name}
-          currency={editandoMonto.currency ?? currency}
+          currency={currency}
           amountCents={editandoMonto.amountCents}
           priority={editandoMonto.priority}
           onPriorityChange={(p) => {
@@ -258,6 +292,19 @@ export function PipelineClient() {
             const { leadId, stageId } = pendingLoss;
             setPendingLoss(null);
             void moverLead(leadId, stageId, { reason, note });
+          }}
+        />
+      )}
+
+      {pendingWon && (
+        <WonResultDialog
+          leadName={pendingWon.name}
+          onCancel={() => setPendingWon(null)}
+          onConfirm={(result, note) => {
+            const lead = leads.find((l) => l.id === pendingWon.leadId);
+            const stageId = pendingWon.stageId;
+            setPendingWon(null);
+            if (lead) void moverLeadAmbResultat(lead, stageId, result, note);
           }}
         />
       )}
@@ -317,7 +364,7 @@ function StageColumn({
           {stage.kind === "lost" && (
             <XCircle className="h-3.5 w-3.5 text-muted-foreground" />
           )}
-          {stage.name}
+          {stageLabel(stage.name)}
         </span>
         <span className="rounded-full border border-border-strong bg-background px-2 py-0.5 font-mono text-[11px] text-text-3">
           {leads.length}
@@ -348,11 +395,11 @@ function StageFooter({ leads, currency }: { leads: BoardLead[]; currency: string
     <div className="border-t px-3 py-2 text-[11px]">
       {conMonto === 0 ? (
         // Un "$0.00" aquí se lee como un error del sistema, no como un dato.
-        <p className="text-muted-foreground">Sin montos capturados</p>
+        <p className="text-muted-foreground">Sense imports capturats</p>
       ) : (
         <div className="flex items-baseline justify-between gap-2">
           <span className="text-muted-foreground">
-            Total{sinMonto > 0 ? ` · ${sinMonto} sin monto` : ""}
+            Total{sinMonto > 0 ? ` · ${sinMonto} sense import` : ""}
           </span>
           <span className="font-semibold tabular-nums">
             {formatMoneyCents(totalCents, currency)}
@@ -363,7 +410,7 @@ function StageFooter({ leads, currency }: { leads: BoardLead[]; currency: string
         // Descartarlos en silencio haría que el total mintiera sin que nadie
         // pudiera notarlo.
         <p className="mt-0.5 text-warning-text">
-          {otraMoneda} en otra moneda, fuera del total
+          {otraMoneda} en una altra moneda, fora del total
         </p>
       )}
     </div>
@@ -403,7 +450,7 @@ function DraggableLead({
           onOpen(lead);
         }
       }}
-      aria-label={`Abrir el trato de ${lead.contact.name}`}
+      aria-label={`Obre la fitxa de la petició de ${lead.contact.name}`}
       className={cn(isDragging && "opacity-40")}
     >
       <LeadCard lead={lead} currency={currency} onEditAmount={onEditAmount} />
@@ -438,8 +485,8 @@ function LeadCard({
           </div>
           <p className="text-[11px] text-muted-foreground">
             {lead.lastActivityAt
-              ? `Actividad: ${formatTime(lead.lastActivityAt)}`
-              : "Sin actividad"}
+              ? `Activitat: ${formatTime(lead.lastActivityAt)}`
+              : "Sense activitat"}
           </p>
         </div>
         {lead.conversationId && (
@@ -447,7 +494,7 @@ function LeadCard({
             href={`/inbox?contact=${lead.contact.id}`}
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
-            aria-label="Abrir conversación"
+            aria-label="Obre la conversa"
             className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <MessageSquareText className="h-4 w-4" />
@@ -473,13 +520,13 @@ function LeadCard({
           )}
         >
           {lead.amountCents === null
-            ? "+ monto"
-            : formatMoneyCents(lead.amountCents, lead.currency ?? currency)}
+            ? "+ import"
+            : formatMoneyCents(lead.amountCents, currency)}
         </button>
       )}
       {overlay && lead.amountCents !== null && (
         <p className="mt-1.5 text-right text-xs font-semibold tabular-nums">
-          {formatMoneyCents(lead.amountCents, lead.currency ?? currency)}
+          {formatMoneyCents(lead.amountCents, currency)}
         </p>
       )}
     </div>

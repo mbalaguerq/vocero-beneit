@@ -25,7 +25,7 @@ const DEMO_CONTACTS: {
   {
     phone: "5215612340001",
     name: "María Fernanda López",
-    stage: "Interesado",
+    stage: "Revisió de l'equip",
     notes: "Remodela su cocina; busca herramienta eléctrica.",
     thread: [
       { dir: "in", text: "Hola, ¿tienen taladros inalámbricos?", hoursAgo: 5 },
@@ -38,7 +38,7 @@ const DEMO_CONTACTS: {
   {
     phone: "5215612340002",
     name: "Carlos Ramírez",
-    stage: "En conversación",
+    stage: "Recollint dades",
     thread: [
       { dir: "in", text: "Buenas, ¿cuánto el bulto de cemento gris?", hoursAgo: 8 },
       { dir: "out", text: "¡Hola Carlos! El bulto de 50 kg está en $245 MXN. Por 10 o más te queda en $232 MXN cada uno.", hoursAgo: 8, ai: true },
@@ -49,7 +49,7 @@ const DEMO_CONTACTS: {
   {
     phone: "5215612340003",
     name: "Lupita Hernández",
-    stage: "Cliente",
+    stage: "Client / feina en curs",
     notes: "Compra recurrente para su taller de carpintería.",
     thread: [
       { dir: "in", text: "Hola de nuevo, ya me quedé sin barniz 😅", hoursAgo: 30 },
@@ -61,7 +61,7 @@ const DEMO_CONTACTS: {
   {
     phone: "5215612340004",
     name: "Jorge Castillo",
-    stage: "Nuevo",
+    stage: "Nova consulta",
     thread: [
       { dir: "in", text: "ke onda, tienen pintura vinilica blanka de 19 lts?", hoursAgo: 2 },
       { dir: "out", text: "¡Qué tal Jorge! Sí: la cubeta de 19 L de vinílica blanca está en $1,150 MXN (rinde ~90 m²). ¿La quieres mate o satinada?", hoursAgo: 2, ai: true },
@@ -70,7 +70,7 @@ const DEMO_CONTACTS: {
   {
     phone: "5215612340005",
     name: "Ana Sofía Torres",
-    stage: "Interesado",
+    stage: "Revisió de l'equip",
     thread: [
       { dir: "in", text: "Hola, vi su anuncio. ¿Manejan material eléctrico?", hoursAgo: 12 },
       { dir: "out", text: "¡Hola Ana! Sí: cable, contactos, pastillas y centros de carga. ¿Qué necesitas para tu proyecto?", hoursAgo: 12, ai: true },
@@ -82,7 +82,7 @@ const DEMO_CONTACTS: {
   {
     phone: "5215612340006",
     name: "Roberto Mendoza",
-    stage: "Perdido",
+    stage: "Tancada / Perduda",
     notes: "Buscaba precio de mayoreo que no podemos igualar.",
     thread: [
       { dir: "in", text: "¿A cómo la tonelada de varilla 3/8?", hoursAgo: 96 },
@@ -94,7 +94,7 @@ const DEMO_CONTACTS: {
   {
     phone: "5215612340007",
     name: "Paty Domínguez",
-    stage: "En conversación",
+    stage: "Recollint dades",
     thread: [
       { dir: "in", text: "Hola, ¿tienen impermeabilizante? Se me llueve la azotea 😩", hoursAgo: 26 },
       { dir: "out", text: "¡Hola Paty! Claro: el impermeabilizante acrílico 5 años (cubeta 19 L) está en $1,680 MXN, cubre ~40 m². ¿De cuántos metros es tu azotea?", hoursAgo: 26, ai: true },
@@ -104,7 +104,7 @@ const DEMO_CONTACTS: {
   {
     phone: "5215612340008",
     name: "Don Chuy Aguilar",
-    stage: "Cliente",
+    stage: "Client / feina en curs",
     thread: [
       { dir: "in", text: "Joven, mándeme la lista de lo de siempre para la cuadrilla", hoursAgo: 50 },
       { dir: "out", text: "¡Con gusto Don Chuy! Su pedido habitual: 5 bultos de cemento, 2 de mortero, 1 rollo de alambre recocido y 3 kg de clavo. Total: $1,585 MXN. ¿Se lo mandamos a la obra de Av. Juárez?", hoursAgo: 50, ai: true },

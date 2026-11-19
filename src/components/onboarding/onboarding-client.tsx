@@ -69,23 +69,23 @@ export function OnboardingClient({
       <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-8">
         <header>
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Guía de inicio
+            Guia d&apos;inici
           </p>
           <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-            Deja listo tu CRM en {total} pasos
+            Deixa a punt el teu CRM en {total} passos
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Hazlos en orden: cada botón te lleva a la pantalla que toca. Al
-            volver aquí verás tu avance.
+            Fes-los en ordre: cada botó et porta a la pantalla corresponent.
+            Quan tornis aquí veuràs el teu progrés.
           </p>
         </header>
 
-        <div aria-label="Avance">
+          <div aria-label="Progrés">
           <div className="flex items-center justify-between text-sm">
             <span className="font-medium">
-              {done} de {total} listos
+              {done} de {total} a punt
             </span>
-            {guide.complete && <span className="text-success-text">¡Completo!</span>}
+            {guide.complete && <span className="text-success-text">Complet!</span>}
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
             <div
@@ -125,7 +125,7 @@ export function OnboardingClient({
                   <h2 className="flex flex-wrap items-center gap-x-2 gap-y-1 font-semibold">
                     {step.title}
                     {step.optional && <Badge variant="secondary">Opcional</Badge>}
-                    <span className="sr-only">{step.done ? " (listo)" : " (pendiente)"}</span>
+                    <span className="sr-only">{step.done ? " (fet)" : " (pendent)"}</span>
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">{step.description}</p>
                   {!step.done && step.hint && (
@@ -161,26 +161,26 @@ export function OnboardingClient({
               <h2 className="font-semibold">
                 {agentReady && agentName
                   ? `${agentName} ya está contestando`
-                  : "Tu agente ya está contestando"}
+                  : "El teu agent ja està responent"}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                El agente está encendido y atiende a tus clientes. Puedes
-                apagarlo cuando quieras desde Agente.
+                L&apos;agent està activat i atén els teus clients. El pots
+                desactivar quan vulguis des d&apos;Agent.
               </p>
               <Link href="/inbox" className={cn(buttonVariants({ size: "sm" }), "mt-3")}>
-                Ir a la Bandeja <ArrowRight className="h-4 w-4" />
+                Anar a la safata <ArrowRight className="h-4 w-4" />
               </Link>
             </>
           ) : guide.complete && guide.brainConnected ? (
             <>
-              <h2 className="font-semibold">¡Todo listo! Enciende a {agente}</h2>
+              <h2 className="font-semibold">Tot a punt! Activa {agente}</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Desde ese momento contestará a tus clientes. Puedes apagarlo
-                cuando quieras desde Agente.
+                A partir d&apos;aquest moment respondrà als teus clients. El pots
+                desactivar quan vulguis des d&apos;Agent.
               </p>
               <Button className="mt-3" disabled={busy} onClick={() => void encender()}>
                 <Power className="h-4 w-4" />
-                {busy ? "Encendiendo…" : `Encender a ${agente}`}
+                {busy ? "Activant…" : `Activa ${agente}`}
               </Button>
               {error && (
                 <p role="alert" className="mt-2 text-sm text-destructive">
@@ -192,15 +192,15 @@ export function OnboardingClient({
             <>
               <h2 className="flex items-center gap-2 font-semibold">
                 <Inbox className="h-4 w-4 text-muted-foreground" />
-                Listo: Vocero funciona como bandeja manual
+                Fet: Instal·lacions Beneït funciona com a safata manual
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Los mensajes llegan a la Bandeja y contestas tú. Para que un
-                agente conteste, conéctalo: después lo enciendes aquí.
+                Els missatges arriben a la safata i respons tu. Perquè respongui
+                un agent, connecta&apos;l i activa&apos;l aquí.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Link href="/inbox" className={buttonVariants({ size: "sm" })}>
-                  Ir a la Bandeja <ArrowRight className="h-4 w-4" />
+                  Anar a la safata <ArrowRight className="h-4 w-4" />
                 </Link>
                 {guiaDelPar && (
                   <a

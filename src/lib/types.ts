@@ -151,12 +151,12 @@ export type LossReason =
   | "otro";
 
 export const LOSS_REASON_LABEL: Record<LossReason, string> = {
-  precio: "Le pareció caro",
-  no_es_perfil: "No era el perfil",
-  sin_presupuesto: "Sin presupuesto ahora",
-  eligio_otro: "Se fue con otro",
-  nunca_contesto: "Nunca contestó",
-  otro: "Otro",
+  precio: "Li ha semblat car",
+  no_es_perfil: "No era el perfil adequat",
+  sin_presupuesto: "Ara no té pressupost",
+  eligio_otro: "Ha triat una altra empresa",
+  nunca_contesto: "No ha contestat mai",
+  otro: "Altre motiu",
 };
 
 /** Quién provocó un movimiento de etapa. */

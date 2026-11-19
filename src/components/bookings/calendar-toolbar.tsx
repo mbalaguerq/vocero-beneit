@@ -130,7 +130,7 @@ export function CalendarToolbar({
       )}
 
       {loading && (
-        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-border-strong border-t-brand" aria-label="Cargando" />
+          <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-border-strong border-t-brand" aria-label="Carregant" />
       )}
 
       <div className="ml-auto flex items-center gap-2">

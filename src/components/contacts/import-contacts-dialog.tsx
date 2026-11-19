@@ -61,7 +61,7 @@ export function ImportContactsDialog({
       | (Result & { error?: { message?: string } })
       | null;
     if (!res?.ok || !data) {
-      setError(data?.error?.message ?? "No se pudo importar. Revisa tu conexión.");
+      setError(data?.error?.message ?? "No s'ha pogut importar. Revisa la connexió.");
       return;
     }
     setResult({ created: data.created, existing: data.existing, paused: data.paused });
@@ -75,11 +75,11 @@ export function ImportContactsDialog({
     >
       <div
         role="dialog"
-        aria-label="Importar contactos"
+        aria-label="Importar contactes"
         className="max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-lg border bg-card p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-1 font-semibold">Importar contactos</h3>
+        <h3 className="mb-1 font-semibold">Importar contactes</h3>
         <p className="mb-4 text-xs text-text-3">
           Un archivo CSV con una columna <strong>nombre</strong> y una{" "}
           <strong>telefono</strong> en el primer renglón. El teléfono va con
@@ -190,7 +190,7 @@ export function ImportContactsDialog({
 
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
-            {result ? "Cerrar" : "Cancelar"}
+            {result ? "Tanca" : "Cancel·la"}
           </Button>
           {!result && (
             <Button
@@ -200,8 +200,8 @@ export function ImportContactsDialog({
               {saving
                 ? "Importando…"
                 : preview && preview.valid.length > 0
-                  ? `Importar ${preview.valid.length}`
-                  : "Importar"}
+                  ? `Importa ${preview.valid.length}`
+                  : "Importa"}
             </Button>
           )}
         </div>

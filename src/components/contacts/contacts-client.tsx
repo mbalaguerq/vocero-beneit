@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SOURCE_LABELS } from "@/server/contact-source";
+import { stageLabel } from "@/lib/stage-labels";
 import { priorityRank } from "@/server/leads/priority";
 import { PriorityBadge } from "@/components/pipeline/priority-picker";
 import { ImportContactsDialog } from "./import-contacts-dialog";
@@ -94,14 +95,14 @@ export function ContactsClient() {
     <div className="flex h-full flex-col">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-[17px] font-bold tracking-tight">Contactos</h2>
+          <h2 className="text-[17px] font-bold tracking-tight">Contactes</h2>
           <Button size="sm" onClick={() => setCreando(true)}>
             <UserPlus className="mr-1.5 h-4 w-4" strokeWidth={1.8} />
-            Nuevo contacto
+            Contacte nou
           </Button>
           <Button size="sm" variant="secondary" onClick={() => setImportando(true)}>
             <Upload className="mr-1.5 h-4 w-4" strokeWidth={1.8} />
-            Importar
+            Importa
           </Button>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:gap-3">
@@ -112,19 +113,19 @@ export function ContactsClient() {
               onChange={(e) => setShowArchived(e.target.checked)}
               className="accent-primary"
             />
-            Ver archivados
+            Veure arxivats
           </label>
           {stages.length > 0 && (
             <select
               value={stage}
               onChange={(e) => setStage(e.target.value)}
-              aria-label="Filtrar por etapa del embudo"
+              aria-label="Filtrar per etapa de l'embut"
               className="h-9 rounded-md border border-input bg-card px-2 text-sm"
             >
-              <option value="all">Toda etapa</option>
+              <option value="all">Totes les etapes</option>
               {stages.map((s) => (
                 <option key={s} value={s}>
-                  {s}
+                  {stageLabel(s)}
                 </option>
               ))}
             </select>
@@ -133,8 +134,8 @@ export function ContactsClient() {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               ref={inputRef}
-              placeholder="Buscar por nombre o teléfono…"
-              aria-label="Buscar contacto"
+              placeholder="Cerca per nom o telèfon…"
+              aria-label="Cercar contacte"
               defaultValue=""
               onChange={(e) => setQuery(e.target.value)}
               className="w-full pl-8 sm:w-72"
@@ -149,13 +150,13 @@ export function ContactsClient() {
             <EmptyState
               icon={Search}
               className="h-full"
-              title="Sin resultados"
+              title="Sense resultats"
               description={
                 <>
-                  Nadie coincide con
+                  No coincideix ningú amb
                   {query.trim() ? ` «${query.trim()}»` : ""}
-                  {query.trim() && stage !== "all" ? " en" : ""}
-                  {stage !== "all" ? ` la etapa «${stage}»` : ""}.
+                  {query.trim() && stage !== "all" ? " a" : ""}
+                  {stage !== "all" ? ` l'etapa «${stage}»` : ""}.
                 </>
               }
             />
@@ -163,8 +164,8 @@ export function ContactsClient() {
             <EmptyState
               icon={Users}
               className="h-full"
-              title="Sin contactos"
-              description="Cada persona que escriba a tu WhatsApp quedará registrada aquí automáticamente."
+              title="Sense contactes"
+              description="Cada persona que escrigui al teu WhatsApp quedarà registrada aquí automàticament."
             />
           )
         ) : (
@@ -232,7 +233,7 @@ export function ContactsClient() {
                     <Send className="h-4 w-4" />
                   </Button>
                   <Link href={`/inbox?contact=${c.id}`}>
-                    <Button variant="ghost" size="icon" aria-label="Abrir conversación">
+                    <Button variant="ghost" size="icon" aria-label="Obrir conversa">
                       <MessageSquareText className="h-4 w-4" />
                     </Button>
                   </Link>

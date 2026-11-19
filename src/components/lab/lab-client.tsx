@@ -25,6 +25,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { GUIA_DEL_PAR_URL } from "@/lib/guia-del-par";
+import { ROLES } from "@/lib/agent-roles";
+import { FASE6_PERSONAS } from "@/server/lab/fase6-bateria";
+
+const TOTAL_ESCENARIOS = ROLES.calificador.personas.length;
 
 type Run = {
   id: string;
@@ -37,7 +41,7 @@ type Run = {
 };
 
 type Hallazgo = {
-  tipo: "alucinacion" | "fuera_de_kb" | "debio_escalar" | "tono";
+  tipo: "alucinacion" | "fuera_de_kb" | "debio_escalar" | "flujo_incompleto" | "tono";
   evidencia: string;
   sugerencia?: { pregunta: string; respuesta: string };
 };
@@ -56,6 +60,7 @@ const TIPO_LABELS: Record<Hallazgo["tipo"], string> = {
   alucinacion: "Alucinación",
   fuera_de_kb: "Fuera del conocimiento",
   debio_escalar: "Debió escalar",
+  flujo_incompleto: "Flujo incompleto",
   tono: "Tono",
 };
 
@@ -109,10 +114,14 @@ export function LabClient() {
     },
   });
 
-  async function launch() {
+  async function launch(suite: "default" | "fase6" = "default") {
     setLaunching(true);
     setError(null);
-    const res = await fetch("/api/lab/runs", { method: "POST" }).catch(() => null);
+    const res = await fetch("/api/lab/runs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ suite }),
+    }).catch(() => null);
     setLaunching(false);
     if (!res) return;
     if (!res.ok) {
@@ -125,12 +134,12 @@ export function LabClient() {
         setBrainConnected(false);
         return;
       }
-      setError(data?.error?.message ?? "No se pudo lanzar la corrida");
+      setError(data?.error?.message ?? "No s'ha pogut iniciar l'avaluació.");
       return;
     }
     const data = (await res.json()) as { runId: string };
     setSelectedRunId(data.runId);
-    setProgress({ done: 0, total: 6 });
+    setProgress({ done: 0, total: suite === "fase6" ? FASE6_PERSONAS.length : TOTAL_ESCENARIOS });
     void refetchRuns();
   }
 
@@ -139,7 +148,7 @@ export function LabClient() {
   if (!aiConfigured && brainConnected) {
     return (
       <div className="flex h-full flex-col">
-        <Header running={false} launching={false} onLaunch={() => {}} disabled />
+        <Header running={false} launching={false} onLaunch={() => {}} onLaunchFase6={() => {}} disabled />
         <div className="m-4 rounded-lg border border-brand-soft bg-brand-tint p-6 text-center sm:m-6 sm:p-8">
           <Sparkles className="mx-auto mb-2 h-8 w-8 text-primary" />
           <p className="font-medium">
@@ -169,6 +178,7 @@ export function LabClient() {
         running={running}
         launching={launching}
         onLaunch={() => void launch()}
+        onLaunchFase6={() => void launch("fase6")}
         disabled={!brainConnected}
       />
       {error && <p className="px-4 pt-3 text-sm text-destructive sm:px-6">{error}</p>}
@@ -230,13 +240,13 @@ export function LabClient() {
           <EmptyState
             icon={FlaskConical}
             className="rounded-lg border border-dashed p-10"
-            title={runs.length === 0 ? "Sin corridas todavía" : "Elige una corrida"}
+            title={runs.length === 0 ? "Encara no hi ha avaluacions" : "Selecciona una avaluació"}
             description={
               runs.length === 0
                 ? brainConnected
-                  ? "Corre tu primera evaluación: 6 clientes simulados conversarán con tu agente y un juez calificará cada conversación."
-                  : "Cuando conectes tu agente, aquí aparecerán sus evaluaciones."
-                : "Abre una corrida del historial para ver su reporte."
+                  ? `Inicia una evaluación: ${TOTAL_ESCENARIOS} conversaciones simuladas pondrán a prueba tu agente y el evaluador calificará cada respuesta.`
+                  : "Quan connectis l'agent, aquí apareixeran les avaluacions."
+                : "Selecciona una avaluació de l'historial per consultar l'informe."
             }
           />
         )}
@@ -249,11 +259,13 @@ function Header({
   running,
   launching,
   onLaunch,
+  onLaunchFase6,
   disabled,
 }: {
   running: boolean;
   launching: boolean;
   onLaunch: () => void;
+  onLaunchFase6: () => void;
   disabled: boolean;
 }) {
   return (
@@ -263,13 +275,19 @@ function Header({
           <FlaskConical className="h-4 w-4 text-primary" /> Laboratorio
         </h2>
         <p className="text-xs text-muted-foreground">
-          Sandbox interno — no envía mensajes reales
+          Entorno de pruebas interno: no se envían mensajes reales
         </p>
       </div>
-      <Button onClick={onLaunch} disabled={disabled || running || launching}>
-        <Play className="h-4 w-4" />
-        {running ? "Corrida en curso…" : "Correr evaluación"}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={onLaunch} disabled={disabled || running || launching}>
+          <Play className="h-4 w-4" />
+          {running ? "Evaluación en curso…" : "Iniciar evaluación"}
+        </Button>
+        <Button variant="outline" onClick={onLaunchFase6} disabled={disabled || running || launching}>
+          <FlaskConical className="h-4 w-4" />
+          Batería Fase 6 · 86 casos
+        </Button>
+      </div>
     </header>
   );
 }
@@ -289,7 +307,7 @@ function HistoryList({
         Historial
       </p>
       {runs.length === 0 && (
-        <p className="text-xs text-muted-foreground">Sin corridas todavía.</p>
+        <p className="text-xs text-muted-foreground">Todavía no hay evaluaciones.</p>
       )}
       {runs.map((run) => (
         <button
@@ -318,7 +336,7 @@ function HistoryList({
             )}
           </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            {new Date(run.startedAt).toLocaleString("es-MX", {
+            {new Date(run.startedAt).toLocaleString("es-ES", {
               day: "numeric",
               month: "short",
               hour: "2-digit",
@@ -336,7 +354,7 @@ function ScoreBadge({ run }: { run: Run }) {
   if (run.status === "failed") return <Badge variant="destructive">Fallida</Badge>;
   const score = run.score ?? 0;
   const variant = score >= 80 ? "success" : score >= 50 ? "warning" : "destructive";
-  return <Badge variant={variant}>Score {score}</Badge>;
+  return <Badge variant={variant}>Puntuación {score}</Badge>;
 }
 
 function Report({
@@ -357,7 +375,7 @@ function Report({
           </div>
           {run.status === "failed" && (
             <p className="text-sm text-destructive">
-              La corrida falló: {run.error ?? "error desconocido"}. Vuelve a
+              La evaluación ha fallado: {run.error ?? "Error desconocido."} Vuelve a
               intentarlo.
             </p>
           )}
@@ -552,7 +570,7 @@ function HallazgoCard({
               onClick={() => void apply()}
               disabled={saving || !pregunta.trim() || !respuesta.trim()}
             >
-              {saving ? "Guardando…" : "Guardar en el KB"}
+              {saving ? "Desant…" : "Desa a la base de coneixement"}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
               Cancelar

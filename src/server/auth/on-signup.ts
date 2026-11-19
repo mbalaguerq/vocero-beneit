@@ -4,11 +4,14 @@ import { newId } from "@/lib/db/ids";
 
 /** Etapas sembradas del pipeline (US2). */
 const SEED_STAGES: { name: string; kind: "open" | "won" | "lost" }[] = [
-  { name: "Nuevo", kind: "open" },
-  { name: "En conversación", kind: "open" },
-  { name: "Interesado", kind: "open" },
-  { name: "Cliente", kind: "won" },
-  { name: "Perdido", kind: "lost" },
+  { name: "Nova consulta", kind: "open" },
+  { name: "Recollint dades", kind: "open" },
+  { name: "Revisió de l'equip", kind: "open" },
+  { name: "Proposta de visita", kind: "open" },
+  { name: "Visita confirmada", kind: "open" },
+  { name: "Client / feina en curs", kind: "open" },
+  { name: "Treball realitzat", kind: "won" },
+  { name: "Tancada / Perduda", kind: "lost" },
 ];
 
 /**

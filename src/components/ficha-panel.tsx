@@ -66,7 +66,7 @@ export function FichaPanel({
     <section className="border-b p-4">
       <div className="mb-2 flex items-center justify-between">
         <p className="kicker">
-          Ficha
+          Fitxa
         </p>
         {!agregando && (
           <button
@@ -74,15 +74,15 @@ export function FichaPanel({
             className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-text-3 hover:bg-accent hover:text-foreground"
           >
             <Plus className="h-3 w-3" />
-            Agregar
+            Afegeix
           </button>
         )}
       </div>
 
       {entradas.length === 0 && !agregando && (
         <p className="text-xs leading-relaxed text-text-3">
-          Todavía vacía. Aquí aparece lo que tu agente va averiguando del lead
-          mientras conversa — y puedes escribirlo tú.
+          Encara és buida. Aquí apareix el que el teu agent va descobrint del
+          contacte mentre conversa, i també ho pots escriure tu.
         </p>
       )}
 
@@ -109,14 +109,14 @@ export function FichaPanel({
                     />
                     <button
                       onClick={() => void confirmarEdicion(clave)}
-                      aria-label="Guardar"
+                      aria-label="Desa"
                       className="rounded p-1 text-text-3 hover:bg-accent hover:text-foreground"
                     >
                       <Check className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => setEditando(null)}
-                      aria-label="Cancelar"
+                      aria-label="Cancel·la"
                       className="rounded p-1 text-text-3 hover:bg-accent hover:text-foreground"
                     >
                       <X className="h-3.5 w-3.5" />
@@ -187,7 +187,7 @@ export function FichaPanel({
               disabled={!claveNueva.trim() || !valorNuevo.trim() || guardando}
               onClick={() => void agregar()}
             >
-              Agregar
+              Afegeix
             </Button>
             <Button
               size="sm"
@@ -198,7 +198,7 @@ export function FichaPanel({
                 setValorNuevo("");
               }}
             >
-              Cancelar
+              Cancel·la
             </Button>
           </div>
         </div>

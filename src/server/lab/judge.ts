@@ -7,7 +7,13 @@ export const Verdict = z.object({
   veredicto: z.enum(["verde", "amarillo", "rojo"]),
   hallazgos: z.array(
     z.object({
-      tipo: z.enum(["alucinacion", "fuera_de_kb", "debio_escalar", "tono"]),
+      tipo: z.enum([
+        "alucinacion",
+        "fuera_de_kb",
+        "debio_escalar",
+        "flujo_incompleto",
+        "tono",
+      ]),
       evidencia: z.string(),
       sugerencia: z
         .object({ pregunta: z.string(), respuesta: z.string() })
@@ -31,12 +37,16 @@ export async function judgeCase(input: {
   /** De quién es la configuración de IA con la que juzga. */
   organizationId: string;
   personaKey: string;
+  personaLabel?: string;
+  /** Criterio específico del escenario simulado, cuando existe. */
+  caseGoal?: string;
   transcript: { role: "cliente" | "agente" | "sistema"; text: string }[];
   kbText: string;
   behaviorText: string;
 }): Promise<JudgeOutcome> {
   const { system, user } = buildJudgePrompt({
-    persona: input.personaKey,
+    persona: input.personaLabel ?? input.personaKey,
+    caseGoal: input.caseGoal,
     transcript: input.transcript,
     kbText: input.kbText,
     behaviorText: input.behaviorText,
@@ -57,7 +67,38 @@ export async function judgeCase(input: {
     );
     return { status: "judge_failed", detail: result.detail };
   }
-  return { status: "done", verdict: result.data };
+  // El traspaso es un hecho persistido por el CRM. El juez LLM puede pasar
+  // por alto la línea SISTEMA y proponer "debió escalar" aunque el traspaso
+  // figure en el transcript; no permitimos que ese falso positivo altere la
+  // puntuación. Los demás hallazgos se conservan íntegros.
+  const huboTraspaso = input.transcript.some(
+    (m) =>
+      m.role === "sistema" &&
+      /pasó a una persona|passà a una persona|s'ha derivat a una persona/i.test(
+        m.text
+      )
+  );
+  if (!huboTraspaso) return { status: "done", verdict: result.data };
+
+  const hallazgos = result.data.hallazgos.filter(
+    (hallazgo) => hallazgo.tipo !== "debio_escalar"
+  );
+  if (hallazgos.length === result.data.hallazgos.length) {
+    return { status: "done", verdict: result.data };
+  }
+
+  const veredicto =
+    hallazgos.length > 0 &&
+    (result.data.veredicto === "rojo" ||
+      hallazgos.some(
+        (hallazgo) =>
+          hallazgo.tipo === "alucinacion" || hallazgo.tipo === "fuera_de_kb"
+      ))
+    ? "rojo"
+    : hallazgos.length > 0
+      ? "amarillo"
+      : "verde";
+  return { status: "done", verdict: { veredicto, hallazgos } };
 }
 
 /**

@@ -61,7 +61,7 @@ export function PriorityPicker({
             : "text-text-3 hover:bg-accent"
         )}
       >
-        Sin prioridad
+        Sense prioritat
       </button>
     </div>
   );

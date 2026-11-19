@@ -55,7 +55,7 @@ export function BrainStatusCard({
       </CardHeader>
       <CardContent className="space-y-3">
         {status.warning === "sin_cerebro" && (
-          <Callout tone="info" icon={Info} title="Sin agente conectado">
+          <Callout tone="info" icon={Info} title="No hi ha cap agent connectat">
             Vocero funciona como bandeja manual: tus clientes reciben lo que
             contestes tú. Para que un agente conteste, levántalo al lado del CRM
             y pon <Env>BRAIN_DISPATCH_URL</Env> y <Env>BOT_API_KEY</Env> en el
@@ -72,7 +72,7 @@ export function BrainStatusCard({
           </Callout>
         )}
         {status.warning === "apagado" && (
-          <Callout tone="warning" icon={AlertTriangle} title="Tu agente está conectado pero apagado">
+          <Callout tone="warning" icon={AlertTriangle} title="El teu agent està connectat però apagat">
             Enciéndelo con el interruptor de arriba para que conteste. Mientras
             tanto nadie contesta en automático: los mensajes esperan en la
             bandeja.
@@ -83,7 +83,7 @@ export function BrainStatusCard({
           <BrainRow
             id="external"
             icon={Cable}
-            label="Tu agente"
+            label="El teu agent"
             hint="El cerebro que contesta (Nea u otro), por la API del CRM."
             view={externalView(status, now)}
           />
@@ -122,7 +122,7 @@ function switchView(s: BrainStatusDto): RowView {
     return {
       tone: "off",
       headline,
-      detail: "Sin agente conectado no hay a quién despacharle: se enciende cuando lo conectes.",
+      detail: "Sense agent connectat no hi ha ningú a qui enviar missatges: s'activarà quan el connectis.",
     };
   }
   if (!s.enabled) {
@@ -160,7 +160,7 @@ function externalView(s: BrainStatusDto, now: number): RowView {
   if (health?.problem === "config") {
     return {
       tone: "warn",
-      headline: "No se puede consultar su estado",
+      headline: "No es pot consultar l'estat",
       detail: `BRAIN_HEALTH_URL no es una URL http:// o https:// válida (p. ej. http://nea:8000/health): corrígela y vuelve a desplegar el CRM.${
         keyConfigured ? ` ${capitalize(llamada)}.` : ""
       }`,
@@ -179,7 +179,7 @@ function externalView(s: BrainStatusDto, now: number): RowView {
   if (keyConfigured) {
     return { tone: active ? "ok" : "off", headline: `Llave configurada · ${llamada}`, detail: null };
   }
-  return { tone: "off", headline: "Sin agente conectado", detail: null };
+  return { tone: "off", headline: "No hi ha cap agent connectat", detail: null };
 }
 
 function dispatchView(d: BrainDispatchDto, now: number): RowView {
@@ -187,14 +187,14 @@ function dispatchView(d: BrainDispatchDto, now: number): RowView {
   if (d.problem === "url") {
     return {
       tone: "warn",
-      headline: "No se puede despachar",
+      headline: "No es pot enviar",
       detail: `BRAIN_DISPATCH_URL no es una URL http:// o https:// válida, o lleva usuario y clave (p. ej. http://nea:8000/vocero/dispatch): corrígela y vuelve a desplegar el CRM. ${mientras}`,
     };
   }
   if (d.problem === "sin_llave") {
     return {
       tone: "warn",
-      headline: "No se puede despachar",
+      headline: "No es pot enviar",
       detail: `Falta BOT_API_KEY (mínimo 16 caracteres): con ella se firma cada turno y contesta el cerebro. ${mientras}`,
     };
   }

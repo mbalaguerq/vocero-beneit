@@ -1,7 +1,7 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
-import { recordLeadCreated } from "@/server/leads/stage-history";
+import { moveLeadToStage, recordLeadCreated } from "@/server/leads/stage-history";
 import type { StageChangeSource } from "@/lib/types";
 
 /**
@@ -17,15 +17,48 @@ export async function onLeadActivity(
   const db = getDb();
 
   const existing = await db
-    .select({ id: schema.lead.id })
+    .select({
+      id: schema.lead.id,
+      stageId: schema.lead.stageId,
+      stageKind: schema.pipelineStage.kind,
+    })
     .from(schema.lead)
+    .innerJoin(schema.pipelineStage, eq(schema.pipelineStage.id, schema.lead.stageId))
     .where(eq(schema.lead.contactId, contactId))
     .limit(1);
 
   if (existing[0]) {
+    // Si el cliente torna a escriure després d'haver quedat tancat/perdut,
+    // reobrim automàticament el lead a la primera etapa oberta perquè la nova
+    // conversa torni a aparèixer a l'embut.
+    if (existing[0].stageKind === "lost") {
+      const firstOpen = await db
+        .select({ id: schema.pipelineStage.id })
+        .from(schema.pipelineStage)
+        .where(
+          and(
+            eq(schema.pipelineStage.organizationId, organizationId),
+            eq(schema.pipelineStage.kind, "open")
+          )
+        )
+        .orderBy(asc(schema.pipelineStage.position))
+        .limit(1);
+      if (firstOpen[0] && firstOpen[0].id !== existing[0].stageId) {
+        await moveLeadToStage({
+          organizationId,
+          leadId: existing[0].id,
+          toStageId: firstOpen[0].id,
+          source: "sistema",
+          occurredAt: at,
+        });
+      }
+    }
     await db
       .update(schema.lead)
-      .set({ lastActivityAt: at, updatedAt: new Date() })
+      // Un missatge nou reactiva també els leads retirats/arxivats de l'embut.
+      // Això evita que la conversa aparegui a la Safata però quedi invisible
+      // al tauler després que l'equip l'hagi retirat manualment.
+      .set({ archivedAt: null, lastActivityAt: at, updatedAt: new Date() })
       .where(eq(schema.lead.id, existing[0].id));
     return;
   }

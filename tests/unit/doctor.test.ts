@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { parseEnv } from "node:util";
+import { parseEnv } from "./parse-env";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Todo lo que toca la base recibe su sonda por parámetro; aquí no hay

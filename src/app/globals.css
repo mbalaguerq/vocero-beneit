@@ -48,11 +48,11 @@
     --bubble-out-text: var(--text);
 
     /* Acento (default: azul Vocero; el white-label lo sobreescribe) */
-    --accent: #0d5bff;
-    --accent-hover: #0a4de6;
-    --accent-soft: #d3e2ff;
-    --accent-tint: #ebf1ff;
-    --accent-text: #0038d8;
+    --accent: #593a2d;
+    --accent-hover: #432b22;
+    --accent-soft: #eadfd8;
+    --accent-tint: #f8f4f1;
+    --accent-text: #593a2d;
     --accent-fg: #ffffff;
     /* El acento como TINTA (una hora, un enlace) y como anillo de foco. En
        claro son el acento mismo; en oscuro, sus variantes aclaradas: el
@@ -140,13 +140,13 @@
     --bubble-in: #173d2c;
     --bubble-in-border: #2a5e45;
 
-    /* Acento: respaldo con el azul Vocero calculado para este fondo; el
+    /* Acento: respaldo con el marrón Beneït calculado para este fondo; el
        white-label lo recalcula (ver resolveAccentSet en lib/branding). */
-    --accent: #256bff;
-    --accent-hover: #4883ff;
-    --accent-soft: #1f3f82;
-    --accent-tint: #1e3567;
-    --accent-text: #6f9eff;
+    --accent: #866f66;
+    --accent-hover: #99867e;
+    --accent-soft: #44424c;
+    --accent-tint: #333645;
+    --accent-text: #afa09a;
     --accent-fg: #ffffff;
     --accent-ink: var(--accent-text);
     --ring: var(--accent-hover);
@@ -200,19 +200,19 @@
   */
   .nav-dark {
     color-scheme: dark;
-    --bg: #0b1327;
-    --bg-subtle: #070e20;
-    --bg-panel: #131f3d;
-    --bg-raised: #131f3d;
-    --bg-hover: #182750;
-    --text: #e8eefc;
-    --text-2: #a9b8dc;
-    --text-3: #7688b0;
-    --text-4: #55648a;
-    --border: #263866;
-    --border-strong: #34498a;
-    --chip-bg: #142040;
-    --row-hover: #111b36;
+    --bg: #2b1b16;
+    --bg-subtle: #160e0b;
+    --bg-panel: #493027;
+    --bg-raised: #493027;
+    --bg-hover: #5a3a2d;
+    --text: #f5eee7;
+    --text-2: #d8c2ad;
+    --text-3: #b09872;
+    --text-4: #8f735e;
+    --border: #67493a;
+    --border-strong: #987551;
+    --chip-bg: #3a261e;
+    --row-hover: #422b22;
     --accent-ink: var(--accent-text);
     --ring: var(--accent);
     --shadow-pop: 0 30px 80px -20px rgba(0, 0, 0, 0.75),

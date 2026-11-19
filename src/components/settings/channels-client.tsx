@@ -131,7 +131,7 @@ export function ChannelsClient() {
     if (!res?.ok) {
       setNotice({
         ok: false,
-        text: data?.error?.message ?? "No se pudo dar de alta el webhook. Intenta de nuevo.",
+        text: data?.error?.message ?? "No s'ha pogut activar el webhook. Torna-ho a provar.",
       });
       return;
     }
@@ -148,7 +148,7 @@ export function ChannelsClient() {
   if (!rows) {
     return (
       <p className="text-sm text-muted-foreground">
-        {failed ? "No se pudo cargar el estado de los canales." : "Cargando…"}
+        {failed ? "No s'ha pogut carregar l'estat dels canals." : "Carregant…"}
       </p>
     );
   }
@@ -190,7 +190,7 @@ export function ChannelsClient() {
                   href={SETTINGS_HREF[r.channel]}
                   className="ml-auto text-xs font-semibold text-brand-text underline-offset-2 hover:underline"
                 >
-                  {r.connected ? "Configurar" : "Conectar"}
+                  {r.connected ? "Configura" : "Connecta"}
                 </Link>
               </div>
 
@@ -198,7 +198,7 @@ export function ChannelsClient() {
                 <dl className="grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-[9.5rem_1fr]">
                   <dt className="text-text-2">Cuenta</dt>
                   <dd>
-                    {r.account ?? "Sin nombre"}
+                    {r.account ?? "Sense nom"}
                     {r.channel !== "whatsapp" && (
                       <span className="text-text-2">
                         {" "}

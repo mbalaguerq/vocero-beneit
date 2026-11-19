@@ -89,7 +89,7 @@ export function AgentClient() {
   if (!profile) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        Cargando…
+        Carregant…
       </div>
     );
   }
@@ -122,7 +122,7 @@ export function AgentClient() {
       if (patch.enabled !== undefined) {
         setSwitchError(
           data?.error?.message ??
-            (patch.enabled ? "No se pudo encender el agente." : "No se pudo apagar el agente.")
+            (patch.enabled ? "No s'ha pogut activar l'agent." : "No s'ha pogut desactivar l'agent.")
         );
       }
       void refetch();
@@ -165,7 +165,7 @@ export function AgentClient() {
           <Switch
             checked={profile.enabled}
             disabled={switchDisabled}
-            label="Agente encendido"
+            label="Agent activat"
             onCheckedChange={(enabled) => void saveProfile({ enabled })}
           />
         </div>
@@ -193,7 +193,7 @@ export function AgentClient() {
         <div className="mx-4 mt-4 rounded-lg border border-brand-soft bg-brand-tint p-5 text-center sm:mx-6 sm:mt-6 sm:p-6">
           <Sparkles className="mx-auto mb-2 h-8 w-8 text-primary" />
           <p className="font-medium">
-            {aiMensaje ? "Tu agente no puede pensar" : "Tu agente no tiene con qué pensar"}
+            {aiMensaje ? "El teu agent no pot pensar" : "El teu agent no té amb què pensar"}
           </p>
           <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
             {aiMensaje ??

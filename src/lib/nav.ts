@@ -28,6 +28,8 @@ export type NavItem = {
   icon: LucideIcon;
   /** Muestra el contador de no leídos (solo la Bandeja). */
   badge?: boolean;
+  /** Enllaços externs (com l'agenda de proves) s'obren en una pestanya nova. */
+  external?: boolean;
 };
 
 export type NavGroup = {
@@ -39,7 +41,7 @@ export type NavGroup = {
 /** La única entrada que va abajo, separada del resto. */
 export const SETTINGS_ITEM: NavItem = {
   href: "/settings",
-  label: "Ajustes",
+  label: "Configuració",
   icon: Settings,
 };
 
@@ -57,29 +59,32 @@ export function appNavGroups({
   role?: string | null;
 }): NavGroup[] {
   const trabajo: NavItem[] = [
-    { href: "/inbox", label: "Bandeja", icon: Inbox, badge: true },
-    { href: "/pipeline", label: "Pipeline", icon: Kanban },
-    { href: "/contacts", label: "Contactos", icon: Users },
+    { href: "/inbox", label: "Safata", icon: Inbox, badge: true },
+    { href: "/pipeline", label: "Embuts", icon: Kanban },
+    { href: "/contacts", label: "Contactes", icon: Users },
   ];
-  // Citas va después de Contactos: es el paso siguiente de un trato, no una
+  // Agenda va después de Contactes: és el pas següent d'una petició, no una
   // sección aparte.
-  if (agenda) trabajo.push({ href: "/bookings", label: "Citas", icon: CalendarDays });
+  // L'Agenda operativa de Beneït és una aplicació separada. El CRM conserva
+  // les peticions i la integració API, però l'entrada visible ha d'obrir
+  // l'agenda real i no el calendari intern de demostració de Vocero.
+  if (agenda) trabajo.push({ href: "https://proves.instalabeneit.es/", label: "Agenda", icon: CalendarDays, external: true });
 
   const agente: NavItem[] = [];
   // Un miembro del equipo no puede hacer ninguno de los pasos de la guía.
   if (canConfigure(role)) {
-    agente.push({ href: "/onboarding", label: "Guía de inicio", icon: ListChecks });
+    agente.push({ href: "/onboarding", label: "Guia d'inici", icon: ListChecks });
   }
   agente.push(
-    { href: "/agent", label: "Agente", icon: Sparkles },
-    { href: "/lab", label: "Laboratorio", icon: FlaskConical }
+    { href: "/agent", label: "Agent", icon: Sparkles },
+    { href: "/lab", label: "Laboratori", icon: FlaskConical }
   );
 
   return [
-    { title: "Trabajo", items: trabajo },
+    { title: "Feina", items: trabajo },
     { title: "Agente", items: agente },
     // 019 — Se mide al final: primero se atiende y se organiza.
-    { items: [{ href: "/results", label: "Resultados", icon: ChartColumn }] },
+    { items: [{ href: "/results", label: "Resultats", icon: ChartColumn }] },
   ];
 }
 
@@ -120,7 +125,7 @@ export function settingsSections({
   // 023 — "Estado" reúne todos los canales; con WhatsApp solo no aporta nada
   // que su pantalla no diga, así que no existe (ADR-001).
   if (instagram || messenger || tiktok) {
-    canales.push({ href: "/settings/channels", label: "Estado" });
+    canales.push({ href: "/settings/channels", label: "Estat" });
   }
   canales.push({ href: "/settings/whatsapp", label: "WhatsApp" });
   if (instagram) canales.push({ href: "/settings/instagram", label: "Instagram" });
@@ -133,15 +138,15 @@ export function settingsSections({
 
   const negocio: SettingsLink[] = [
     { href: "/settings/branding", label: "Marca" },
-    { href: "/settings/templates", label: "Plantillas" },
-    { href: "/settings/team", label: "Equipo" },
+    { href: "/settings/templates", label: "Plantilles" },
+    { href: "/settings/team", label: "Equip" },
   ];
-  if (atribucion) negocio.push({ href: "/settings/ads", label: "Anuncios" });
+  if (atribucion) negocio.push({ href: "/settings/ads", label: "Anuncis" });
 
   return [
-    { title: "Canales", links: canales },
-    { title: "Agente", links: agente },
-    { title: "Negocio", links: negocio },
+    { title: "Canals", links: canales },
+    { title: "Agent", links: agente },
+    { title: "Negoci", links: negocio },
   ];
 }
 

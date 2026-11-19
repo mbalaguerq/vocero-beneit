@@ -43,31 +43,35 @@ export const GET = withAuth(async (session) => {
   });
 });
 
-export const POST = withAuth(async (session) => {
+export const POST = withAuth(async (session, request: Request) => {
   // 036 — El Laboratorio prueba al cerebro conectado: sin él no hay a quién.
   if (!leerConfigDespacho().active) {
     return apiError(
       409,
       "sin_cerebro",
-      "Conecta tu agente para correr el Laboratorio: prueba al cerebro que contesta a tus clientes"
+      "Conecta el agente para ejecutar el Laboratorio y probar las respuestas que reciben tus clientes."
     );
   }
   if (!(await isAiConfiguredFor(session.organizationId))) {
     return apiError(
       409,
       "ai_not_configured",
-      "Configura tu proveedor de IA en Ajustes → IA para correr el Laboratorio"
+      "Configura el proveedor de IA en Ajustes → IA para ejecutar el Laboratorio."
     );
   }
   try {
-    const runId = await startRun(session.organizationId);
+    const body = (await request.json().catch(() => ({}))) as { suite?: unknown };
+    if (body.suite !== undefined && body.suite !== "default" && body.suite !== "fase6") {
+      return apiError(400, "suite_invalid", "La batería solicitada no existe.");
+    }
+    const runId = await startRun(session.organizationId, body.suite === "fase6" ? "fase6" : "default");
     return Response.json({ runId }, { status: 202 });
   } catch (err) {
     if (err instanceof RunConflictError) {
       return apiError(
         409,
         "run_in_progress",
-        "Ya hay una corrida en curso; espera a que termine"
+        "Ya hay una evaluación en curso; espera a que termine."
       );
     }
     throw err;

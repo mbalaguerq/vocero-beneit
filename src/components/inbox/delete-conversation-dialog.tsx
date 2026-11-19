@@ -75,7 +75,7 @@ export function DeleteConversationDialog({
             <span className="font-medium">Borrar también el contacto y su lead</span>
             <span className="mt-0.5 block text-xs text-text-3">
               {alsoContact
-                ? "Se van además sus notas, su etapa en el pipeline y sus citas pasadas. Deja de contar en Resultados."
+                ? "Se van además sus notas, su etapa en el embudo y sus citas pasadas. Deja de contar en Resultados."
                 : "Sin marcar, el contacto conserva sus notas, su etapa y sus citas."}
             </span>
           </span>

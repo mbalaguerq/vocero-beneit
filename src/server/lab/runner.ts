@@ -9,6 +9,7 @@ import { encolarDespacho } from "@/server/dispatch/outbox";
 import { iniciarWorker, programarTanda } from "@/server/dispatch/worker";
 import { computeScore, judgeCase } from "@/server/lab/judge";
 import { PERSONAS, type Persona } from "@/server/lab/personas";
+import { FASE6_PERSONAS } from "@/server/lab/fase6-bateria";
 import { rolDe } from "@/lib/agent-roles";
 
 /**
@@ -42,7 +43,10 @@ export const SILENCIO_MS = 45_000;
 
 export class RunConflictError extends Error {}
 
-export async function startRun(organizationId: string): Promise<string> {
+export async function startRun(
+  organizationId: string,
+  suite: "default" | "fase6" = "default"
+): Promise<string> {
   const db = getDb();
   let runId: string;
   try {
@@ -65,7 +69,7 @@ export async function startRun(organizationId: string): Promise<string> {
     .from(schema.agentProfile)
     .where(eq(schema.agentProfile.organizationId, organizationId))
     .limit(1);
-  const delRol = personasDelRol(perfil?.role);
+  const delRol = suite === "fase6" ? FASE6_PERSONAS : personasDelRol(perfil?.role);
 
   await db.insert(schema.agentTestCase).values(
     delRol.map((p) => ({
@@ -179,6 +183,8 @@ async function runAllCases(
     const outcome = await judgeCase({
       organizationId,
       personaKey: persona.key,
+      personaLabel: persona.label,
+      caseGoal: persona.description,
       transcript,
       kbText,
       behaviorText,

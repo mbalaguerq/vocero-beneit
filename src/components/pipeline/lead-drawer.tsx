@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { MessageSquareText, X } from "lucide-react";
+import { Archive, CalendarPlus, MessageSquareText, X } from "lucide-react";
 import type {
   AnuncioDto,
   FichaDto,
@@ -36,6 +36,7 @@ export function LeadDrawer({
   onMoveStage,
   onAmount,
   onPriority,
+  onArchive,
 }: {
   lead: BoardLead;
   stages: StageDto[];
@@ -46,15 +47,18 @@ export function LeadDrawer({
   onMoveStage: (stageId: string) => void;
   onAmount: (cents: number | null) => void;
   onPriority: (value: PriorityValue | null) => void;
+  onArchive: () => void;
 }) {
   const [ficha, setFicha] = useState<FichaDto>({});
   // 018: de qué anuncio llegó; null si escribió por su cuenta.
   const [anuncio, setAnuncio] = useState<AnuncioDto | null>(null);
   const [monto, setMonto] = useState("");
   const [editandoMonto, setEditandoMonto] = useState(false);
+  const [agendaState, setAgendaState] = useState<"idle" | "sending" | "created" | "error">("idle");
+  const [agendaMessage, setAgendaMessage] = useState("");
 
   const contactId = lead.contact.id;
-  const moneda = lead.currency ?? currency;
+  const moneda = currency;
 
   const cargarFicha = useCallback(async () => {
     const detail = await fetch(`/api/contacts/${contactId}`)
@@ -103,11 +107,32 @@ export function LeadDrawer({
   const montoParseado = monto.trim() ? parseMoneyToCents(monto) : null;
   const montoInvalido = monto.trim().length > 0 && montoParseado === null;
 
+  async function crearPeticióAgenda() {
+    if (!lead.conversationId || agendaState === "sending") return;
+    setAgendaState("sending");
+    setAgendaMessage("");
+    const response = await fetch("/api/agenda/requests", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ leadId: lead.id }),
+    }).catch(() => null);
+    const data = (await response?.json().catch(() => null)) as
+      | { duplicate?: boolean; error?: { message?: string } }
+      | null;
+    if (!response?.ok) {
+      setAgendaState("error");
+      setAgendaMessage(data?.error?.message ?? "No s'ha pogut crear la petició a l'Agenda.");
+      return;
+    }
+    setAgendaState("created");
+    setAgendaMessage(data?.duplicate ? "Aquesta petició ja era a l'Agenda." : "Petició creada a l'Agenda.");
+  }
+
   return (
     <>
       {/* Velo: cerrar tocando fuera es lo que uno intenta primero. */}
       <button
-        aria-label="Cerrar el trato"
+        aria-label="Tanca la fitxa de la petició"
         tabIndex={-1}
         onClick={onClose}
         className="fixed inset-0 z-40 bg-overlay"
@@ -116,16 +141,16 @@ export function LeadDrawer({
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label={`Trato de ${lead.contact.name}`}
+            aria-label={`Fitxa de la petició de ${lead.contact.name}`}
         className="fixed inset-y-0 right-0 z-50 flex w-[min(360px,92vw)] flex-col border-l bg-popover shadow-pop"
       >
         <header className="flex items-center justify-between border-b px-4 py-3">
           <h3 className="kicker text-text-2">
-            Trato
+            Fitxa de la petició
           </h3>
           <button
             onClick={onClose}
-            aria-label="Cerrar el panel del trato"
+            aria-label="Tanca el panell de la petició"
             className="rounded p-1 text-text-3 hover:bg-accent hover:text-foreground"
           >
             <X className="h-4 w-4" strokeWidth={1.7} />
@@ -154,12 +179,31 @@ export function LeadDrawer({
                 href={`/inbox?contact=${lead.contact.id}`}
                 className="mt-3 flex w-full items-center justify-center gap-2 rounded-md border bg-secondary px-3 py-2 text-sm font-medium hover:bg-accent"
               >
-                <MessageSquareText className="h-4 w-4" /> Abrir conversación
+                <MessageSquareText className="h-4 w-4" /> Obre la conversa
               </Link>
             ) : (
               <p className="mt-3 text-xs text-text-3">
-                Todavía no hay conversación con este contacto.
+                Encara no hi ha cap conversa amb aquest contacte.
               </p>
+            )}
+
+            {lead.conversationId && (
+              <div className="mt-3">
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  disabled={agendaState === "sending" || agendaState === "created"}
+                  onClick={() => void crearPeticióAgenda()}
+                >
+                  <CalendarPlus className="h-4 w-4" />
+                  {agendaState === "sending" ? "Creant petició…" : agendaState === "created" ? "Petició a l'Agenda" : "Crear petició a l'Agenda"}
+                </Button>
+                {agendaMessage && (
+                  <p className={cn("mt-2 text-xs", agendaState === "error" ? "text-destructive" : "text-text-3")}>
+                    {agendaMessage}
+                  </p>
+                )}
+              </div>
             )}
 
             {anuncio && (
@@ -167,12 +211,16 @@ export function LeadDrawer({
                 <AnuncioOrigen anuncio={anuncio} />
               </div>
             )}
+
+            <Button className="mt-3 w-full" variant="ghost" onClick={onArchive}>
+              <Archive className="h-4 w-4" /> Retira de l&apos;embut
+            </Button>
           </section>
 
           {/* Cuánto */}
           <section className="border-b p-4">
             <p className="mb-2 kicker">
-              Monto ({moneda})
+              Import ({moneda})
             </p>
             {editandoMonto ? (
               <>
@@ -188,15 +236,15 @@ export function LeadDrawer({
                     if (e.key === "Escape") setEditandoMonto(false);
                   }}
                   placeholder="12,500"
-                  aria-label="Monto del trato"
+                  aria-label="Import de la petició"
                   className="h-8 text-sm"
                 />
                 <p className="mt-1 text-xs text-text-3">
                   {montoInvalido
-                    ? "No se entiende ese importe."
+                    ? "No s'entén aquest import."
                     : montoParseado === null
-                      ? "Déjalo vacío para quitar el monto."
-                      : `Se guardará como ${formatMoneyCents(montoParseado, moneda)}`}
+                      ? "Deixa'l buit per eliminar l'import."
+                      : `Es desarà com ${formatMoneyCents(montoParseado, moneda)}`}
                 </p>
                 <div className="mt-2 flex gap-1.5">
                   <Button
@@ -207,14 +255,14 @@ export function LeadDrawer({
                       onAmount(montoParseado);
                     }}
                   >
-                    Guardar
+                    Desa
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => setEditandoMonto(false)}
                   >
-                    Cancelar
+                    Cancel·la
                   </Button>
                 </div>
               </>
@@ -230,7 +278,7 @@ export function LeadDrawer({
                 )}
               >
                 {lead.amountCents === null
-                  ? "Sin monto — captúralo"
+                  ? "Sense import — afegeix-lo"
                   : formatMoneyCents(lead.amountCents, moneda)}
               </button>
             )}
@@ -239,7 +287,7 @@ export function LeadDrawer({
           {/* A quién llamar primero */}
           <section className="border-b p-4">
             <p className="mb-2 kicker">
-              Prioridad
+              Prioritat
             </p>
             <PriorityPicker value={lead.priority} onChange={onPriority} />
           </section>

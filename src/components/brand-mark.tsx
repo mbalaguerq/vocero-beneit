@@ -117,6 +117,15 @@ export function BrandLogo({
   size?: keyof typeof WORDMARK_SIZE;
   className?: string;
 }) {
+  if (branding.name.toLowerCase().includes("beneït") || branding.name.toLowerCase().includes("beneit")) {
+    return (
+      <img
+        src="/brand/beneit-logo-principal.png"
+        alt="Instal·lacions Beneït"
+        className={cn("h-auto w-[152px] object-contain", size === "lg" && "w-[220px]", className)}
+      />
+    );
+  }
   if (isVoceroName(branding.name) && !branding.favicon) {
     return (
       <span className={cn("flex items-center gap-2 text-foreground", className)}>

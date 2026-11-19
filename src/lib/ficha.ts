@@ -17,6 +17,17 @@ export function fichaLabel(key: string): string {
     .trim()
     .toLowerCase();
   if (!palabras) return key;
+  const traduccions: Record<string, string> = {
+    descripcion: "Descripció",
+    direccion: "Adreça",
+    address: "Adreça",
+    geo: "Ubicació",
+    nombre: "Nom",
+    name: "Nom",
+    resultado: "Resultat",
+    result: "Resultat",
+  };
+  if (traduccions[palabras]) return traduccions[palabras];
   return palabras.charAt(0).toUpperCase() + palabras.slice(1);
 }
 

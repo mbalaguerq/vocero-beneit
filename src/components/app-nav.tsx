@@ -1,17 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { AlertTriangle, LogOut, X } from "lucide-react";
 import type { Branding } from "@/lib/branding";
 import type { ThemePreference } from "@/lib/theme";
-import { cn, initials } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { appNavGroups, isNavActive, SETTINGS_ITEM, type NavItem } from "@/lib/nav";
 import { signOut } from "@/lib/auth/client";
 import { useEvents } from "@/components/use-events";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { BrandLogo } from "@/components/brand-mark";
+import { BrandLogo, BrandTile } from "@/components/brand-mark";
 import {
   BUILD_COMMIT,
   UNVERIFIED_COMMIT_NOTE,
@@ -100,9 +99,11 @@ export function AppNav({
   function renderItem(item: NavItem) {
     const active = isNavActive(pathname, item.href);
     return (
-      <Link
+      <a
         key={item.href}
         href={item.href}
+        target={item.external ? "_blank" : undefined}
+        rel={item.external ? "noopener noreferrer" : undefined}
         className={navItemClass(active)}
         aria-current={active ? "page" : undefined}
       >
@@ -117,7 +118,7 @@ export function AppNav({
             {unread}
           </span>
         )}
-      </Link>
+      </a>
     );
   }
 
@@ -158,7 +159,7 @@ export function AppNav({
       {/* Grupos con encabezado pequeño, sin letras ni colapsables: se leen
           de arriba abajo como una lista de lo que hay. Un grupo sin título
           (Resultados) es una entrada suelta separada por el espacio. */}
-      <nav className="flex flex-col gap-4" aria-label="Secciones">
+      <nav className="flex flex-col gap-4" aria-label="Seccions">
         {groups.map((group, i) => (
           <div key={group.title ?? i} className="flex flex-col gap-0.5">
             {group.title && (
@@ -178,18 +179,18 @@ export function AppNav({
 
       <div className="mt-1 flex items-center gap-2.5 rounded-sm px-2.5 py-2 hover:bg-accent">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-bold text-brand-text">
-          {initials(userName)}
+          <BrandTile branding={branding} className="h-8 w-8 rounded-full text-[10px]" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[13px] font-semibold">{userName}</span>
           <span className="block truncate text-[11px] text-text-3">
-            {role === "owner" ? "Propietario" : "Equipo"} · En línea
+            {role === "owner" ? "Propietari" : "Equip"} · En línia
           </span>
         </span>
         <ThemeToggle initial={theme} />
         <button
-          aria-label="Cerrar sesión"
-          title="Cerrar sesión"
+          aria-label="Tancar sessió"
+          title="Tancar sessió"
           className="rounded p-1 text-text-3 hover:text-foreground"
           onClick={async () => {
             await signOut();

@@ -33,6 +33,10 @@ export const envSchema = z.object({
   // 015: motor de agenda. Apagado por defecto — sin el, toda la superficie de
   // agenda responde 404 y la UI no la menciona. Ej.: AGENDA=on
   AGENDA: z.string().optional(),
+  // Conector opcional con l'Agenda Beneit: solo envia solicitudes completas
+  // desde el cerebro autenticado; las credenciales viven en el entorno.
+  AGENDA_REQUESTS_BASE_URL: z.string().url().optional(),
+  AGENDA_REQUESTS_TOKEN: z.string().min(32).optional(),
   // 016: atribucion de anuncios y reporte a la Conversions API de Meta.
   // Apagada por defecto: sin ella no se captura de que anuncio vino una
   // conversacion, no se le reporta nada a Meta y la superficie da 404.

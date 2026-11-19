@@ -61,7 +61,7 @@ export function TeamClient() {
       const data = (await res?.json().catch(() => null)) as {
         error?: { message?: string };
       } | null;
-      setError(data?.error?.message ?? "No se pudo crear la cuenta");
+      setError(data?.error?.message ?? "No s'ha pogut crear el compte");
       return;
     }
     setCreated({ email, password: tempPassword });
@@ -134,7 +134,7 @@ export function TeamClient() {
             onClick={() => void create()}
           >
             <UserPlus className="h-4 w-4" />
-            {saving ? "Creando…" : "Crear cuenta"}
+            {saving ? "Creant…" : "Crea el compte"}
           </Button>
         </CardContent>
       </Card>
@@ -154,7 +154,7 @@ export function TeamClient() {
               <p className="text-xs text-muted-foreground">{m.email}</p>
             </div>
             <Badge variant={m.role === "owner" ? "default" : "secondary"}>
-              {m.role === "owner" ? "Propietario" : "Miembro"}
+              {m.role === "owner" ? "Propietari" : "Membre"}
             </Badge>
           </div>
         ))}

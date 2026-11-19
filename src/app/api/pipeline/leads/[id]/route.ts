@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { apiError, parseBody, withAuth } from "@/lib/api";
 import { getDb, schema } from "@/lib/db";
@@ -146,4 +146,15 @@ export const PATCH = withAuth(async (session, req: Request, ctx: Params) => {
   }
 
   return Response.json({ lead: res.lead });
+});
+
+export const DELETE = withAuth(async (session, _req, ctx: Params) => {
+  const { id } = await ctx.params;
+  const db = getDb();
+  const updated = await db.update(schema.lead)
+    .set({ archivedAt: new Date(), updatedAt: new Date() })
+    .where(and(scoped(schema.lead.organizationId, session.organizationId), eq(schema.lead.id, id), isNull(schema.lead.archivedAt)))
+    .returning({ id: schema.lead.id });
+  if (!updated[0]) return apiError(404, "not_found", "Petició no trobada");
+  return Response.json({ ok: true });
 });

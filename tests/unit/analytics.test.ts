@@ -97,7 +97,7 @@ describe("motivosDePerdida", () => {
       desenlace({ leadId: "d", kind: "won" }),
     ]);
     expect(m).toEqual([
-      { reason: "precio", label: "Le pareció caro", count: 2 },
+      { reason: "precio", label: "Li ha semblat car", count: 2 },
       { reason: "sin_registro", label: "Sin motivo registrado", count: 1 },
     ]);
   });

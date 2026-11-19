@@ -74,7 +74,11 @@ export async function probeProvider(input: {
       body: JSON.stringify({
         model: input.model,
         messages: [{ role: "user", content: "Responde solo: ok" }],
-        max_tokens: 5,
+        // Recent OpenAI models use `max_completion_tokens`; older providers
+        // and OpenRouter still accept the widely-supported `max_tokens`.
+        ...(esApiOpenAi(url)
+          ? { max_completion_tokens: 5 }
+          : { max_tokens: 5 }),
       }),
       signal: controller.signal,
     });
@@ -137,7 +141,13 @@ export function clasificarFallo(
       message: `La cuenta no tiene saldo (402)${detalle}`,
     };
   }
-  if (status === 404 || (status === 400 && /model/i.test(body))) {
+  if (
+    status === 404 ||
+    (status === 400 &&
+      /(?:model.*(?:not found|does not exist|invalid|not a valid)|(?:not found|does not exist|invalid|not a valid).*model)/i.test(
+        body
+      ))
+  ) {
     return {
       ok: false,
       code: "model_not_found",
@@ -159,6 +169,15 @@ export function clasificarFallo(
     httpStatus: status,
     message: `El proveedor respondió ${status}${detalle}`,
   };
+}
+
+/** OpenAI's API rejects `max_tokens` for newer model families. */
+function esApiOpenAi(url: string): boolean {
+  try {
+    return new URL(url).hostname.toLowerCase() === "api.openai.com";
+  } catch {
+    return false;
+  }
 }
 
 /** El `error.message` del cuerpo si lo trae, truncado; si no, nada. */

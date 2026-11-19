@@ -45,14 +45,14 @@ export function AmountDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Monto y prioridad"
+      aria-label="Import i prioritat"
     >
       <div className="w-full max-w-sm rounded-lg border bg-popover p-4 shadow-pop">
-        <h3 className="font-semibold">Monto y prioridad</h3>
+        <h3 className="font-semibold">Import i prioritat</h3>
         <p className="mt-0.5 text-xs text-text-3">{leadName}</p>
 
         <label className="mt-3 block text-xs font-medium" htmlFor="monto">
-          Cuánto vale este trato ({currency})
+          Quin és l&apos;import d&apos;aquesta petició ({currency})
         </label>
         <Input
           id="monto"
@@ -65,18 +65,18 @@ export function AmountDialog({
         />
         {invalido ? (
           <p className="mt-1 text-xs text-danger-text">
-            No reconozco ese número. Escríbelo como 12500 o 12,500.00
+            No s&apos;entén aquest número. Escriu-lo com 12500 o 12.500,00
           </p>
         ) : (
           <p className="mt-1 text-xs text-text-3">
             {parsed === null
-              ? "Déjalo vacío para quitar el monto."
-              : `Se guardará como ${formatMoneyCents(parsed, currency)}`}
+              ? "Deixa'l buit per eliminar l'import."
+              : `Es desarà com ${formatMoneyCents(parsed, currency)}`}
           </p>
         )}
 
         <div className="mt-4">
-          <p className="text-xs font-medium">Prioridad</p>
+          <p className="text-xs font-medium">Prioritat</p>
           <div className="mt-1.5">
             <PriorityPicker value={priority} onChange={onPriorityChange} />
           </div>
@@ -84,10 +84,10 @@ export function AmountDialog({
 
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="ghost" onClick={onCancel}>
-            Cancelar
+            Cancel·la
           </Button>
           <Button disabled={invalido} onClick={() => onSave(parsed)}>
-            Guardar
+            Desa
           </Button>
         </div>
       </div>

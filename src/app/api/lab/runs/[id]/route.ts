@@ -23,7 +23,7 @@ export const GET = withAuth(async (session, _req: Request, ctx: Params) => {
     )
     .limit(1);
   const run = runs[0];
-  if (!run) return apiError(404, "not_found", "Corrida no encontrada");
+  if (!run) return apiError(404, "not_found", "Evaluación no encontrada");
 
   const cases = await db
     .select()

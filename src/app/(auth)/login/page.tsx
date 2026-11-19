@@ -26,7 +26,7 @@ export default function LoginPage() {
       setError(
         err.status === 429
           ? "Demasiados intentos. Espera unos minutos."
-          : "Correo o contraseña incorrectos."
+          : "El correu o la contrasenya no són correctes."
       );
       return;
     }

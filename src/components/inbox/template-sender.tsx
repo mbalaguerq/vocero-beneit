@@ -87,7 +87,7 @@ export function TemplateSender({
       const data = (await res.json().catch(() => null)) as {
         error?: { message?: string };
       } | null;
-      setError(data?.error?.message ?? "No se pudo enviar la plantilla");
+      setError(data?.error?.message ?? "No s'ha pogut enviar la plantilla");
       return;
     }
     setSelectedId("");
