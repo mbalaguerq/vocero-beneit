@@ -7,11 +7,11 @@ Actualitzat el 2026-11-19. Aquest document conté només noms de variables, rute
 | Component | Plataforma | Repositori/projecte | URL | Base de dades | Accés | Estat |
 |---|---|---|---|---|---|---|
 | Agent Nea | Render, servei `vocero-nea-proves` | `mbalaguerq/vocero-beneit`, `main` | `https://proves.instalabeneit.es` per a l’agenda; `/health` al servei Render | PostgreSQL de l’agent; el codi usa `bot_conversation`, `bot_message`, `offered_slots`, cues i estat de missatges processats | Render i repositori | **VERIFICAT**: `app/`, `app/db.py`, `app/config.py`; desplegament Live i proves informades |
-| CRM de proves | Supabase “Vocero Beneït Proves” | Projecte Supabase `lhqzqvjwzvkaleiksjob`; projecte sense repositori GitHub connectat | `https://lhqzqvjwzvkaleiksjob.supabase.co` | L’esquema `public` no mostra taules del CRM | Supabase Dashboard | **VERIFICAT** al Dashboard: nom, URL, Healthy, “No repository connected” i taules públiques sense llistat |
+| CRM de proves | cPanel, URL `vocero.instalabeneit.es` | **Font indicada per l’usuari:** el codi complet és local i és la font de veritat; la còpia del domini només serveix per disposar d’una URL de proves | `https://vocero.instalabeneit.es` | **NO VERIFICAT**: encara no identificada | cPanel/File Manager i codi local | **VERIFICAT per l’usuari**: comparteix servidor amb les agendes; **VERIFICAT al cPanel**: `/home/ra406321/vocero.instalabeneit.es` apareix buit |
 | Agenda PHP de proves | Servidor de proves | Repositori local App Beneit Agenda | `https://proves.instalabeneit.es` | `ra406321_agenda_proves` | cPanel/phpMyAdmin i aplicació PHP | **VERIFICAT**: taula `whatsapp_service_requests` i endpoint `POST /api/whatsapp/requests` segons el codi i les comprovacions E2E |
 | Producció | Servidor de producció | `kevinrivm/vocero-crm` i agenda de producció | **NO DOCUMENTAR URL OPERATIVA** | **NO VERIFICAT** en aquest projecte | Prohibit tocar-ho | **VERIFICAT**: queda fora de l’abast |
 
-El CRM de proves no és dins d’aquest repositori. El projecte Supabase obert no té repositori GitHub connectat i l’esquema públic no mostra les taules del CRM; per tant, la ubicació real del backend/BD del CRM continua sense identificar-se. No s’ha d’editar `vocero-beneit` per canviar la UI del CRM.
+El projecte Supabase “Vocero Beneït Proves” és buit i **NO S’USA**, segons l’usuari i les comprovacions del Dashboard: no hi ha taules públiques, funcions, Edge Functions ni buckets visibles. Segons l’usuari, el codi complet del CRM existeix localment i és la font de veritat; la ruta local exacta encara no s’ha pogut verificar. El webroot vist al cPanel (`/home/ra406321/vocero.instalabeneit.es`) estava buit, de manera que no permet identificar el codi ni la BD efectiva del CRM. No s’ha d’editar ni reiniciar cap BD fins identificar-los.
 
 ## 2. Flux E2E
 
@@ -42,7 +42,7 @@ Només es documenten noms:
 
 ### Desplegament
 
-Render verifica el servei `vocero-nea-proves` connectat a `mbalaguerq/vocero-beneit`, branca `main`, runtime Docker, URL pública `https://vocero-nea-proves.onrender.com`, amb l’últim commit Live consultat `06d2f37`. Els desplegaments observats són Auto-Deploy; després cal comprovar `/health` i logs, sense imprimir variables.
+Render verifica el servei `vocero-nea-proves` connectat a `mbalaguerq/vocero-beneit`, branca `main`, runtime Docker, URL pública `https://vocero-nea-proves.onrender.com`, amb desplegament automàtic. El CRM de proves allotjat a `vocero.instalabeneit.es` és una còpia servida per cPanel segons l’usuari; el mecanisme concret de pujada i la ruta efectiva del document root són **NO VERIFICATS**.
 
 ### Proves
 
@@ -75,9 +75,18 @@ El reinici complet del CRM (cita, embut, memòria del CRM i conversa) **NO ÉS I
 
 ## 6. NO VERIFICAT / pendent de confirmar
 
-- Backend/BD real que alimenta `vocero.instalabeneit.es`; el Supabase consultat no mostra taules públiques del CRM.
+- Ruta local exacta del repositori/codi complet del CRM.
+- Backend/BD real que alimenta `vocero.instalabeneit.es`; el Supabase consultat no mostra taules públiques del CRM i el directori de cPanel inspeccionat estava buit.
 - Esquema i noms de taules del CRM per a converses, memòria, cites i embut.
 - Endpoint administratiu oficial per cancel·lar una cita del CRM sense handoff.
 - Procediment reversible oficial per reiniciar una conversa del CRM.
-- Si el projecte Supabase és només configuració/telemetria o si hi ha una altra BD del CRM.
+- Nom, usuari i host de la BD real del CRM de cPanel.
+- Procediment de desplegament efectiu del CRM a cPanel.
+- Si el projecte Supabase és només un projecte buit sense ús (la dada d’ús/no ús és **VERIFICADA per l’usuari**, però la relació exacta amb el CRM no és observable al Dashboard).
+
+## 7. Fets aportats per l’usuari
+
+- **VERIFICAT per l’usuari:** `vocero.instalabeneit.es` és el CRM de proves, allotjat a cPanel al mateix servidor que `proves.instalabeneit.es` i `agenda.instalabeneit.es`.
+- **VERIFICAT per l’usuari:** el codi complet del CRM és local, és la font de veritat i la còpia del domini només existeix per oferir una URL de proves.
+- **VERIFICAT per l’usuari:** el projecte Supabase “Vocero Beneït Proves” és buit i no s’utilitza.
 
