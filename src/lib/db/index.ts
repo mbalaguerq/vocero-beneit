@@ -41,6 +41,7 @@ function createClient() {
   const env = getEnv();
   return postgres(env.DATABASE_URL, {
     max: 10,
+    connect_timeout: 5,
     ...PG_CONNECTION_OPTIONS,
   });
 }
