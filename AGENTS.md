@@ -1,124 +1,82 @@
-# Nea — Guía para Codex
+# Context permanent del projecte Vocero Beneït
 
-Microservicio FastAPI del agente de agendamiento. El CRM
-([vocero-crm](https://github.com/kevinrivm/vocero-crm)) recibe los mensajes de
-WhatsApp, Instagram, Messenger y TikTok y se los **despacha** a Nea firmados
-(`POST /vocero/dispatch`); Nea conversa vía el modelo y contesta **siempre a
-través del API del CRM**, nunca directo a Meta ni a Zernio. Desde la 2.0 (spec
-031 de vocero-crm) el despacho es la única entrada: Nea ya no recibe el webhook
-de Meta ni lo reenvía.
+Actualitzat el 2026-11-19. Aquest document conté només noms de variables, rutes i dades no secretes.
 
-## Stack
+## 1. Arquitectura i ubicació
 
-Python 3.11 · FastAPI + uvicorn (:8000, `/health`) · asyncpg + migraciones SQL
-idempotentes al arranque · httpx (CRM y OpenAI) · pytest + respx · Docker
-(python:3.11-slim).
+| Component | Plataforma | Repositori/projecte | URL | Base de dades | Accés | Estat |
+|---|---|---|---|---|---|---|
+| Agent Nea | Render, servei `vocero-nea-proves` | `mbalaguerq/vocero-beneit`, `main` | `https://proves.instalabeneit.es` per a l’agenda; `/health` al servei Render | PostgreSQL de l’agent; el codi usa `bot_conversation`, `bot_message`, `offered_slots`, cues i estat de missatges processats | Render i repositori | **VERIFICAT**: `app/`, `app/db.py`, `app/config.py`; desplegament Live i proves informades |
+| CRM de proves | Supabase “Vocero Beneït Proves” | Projecte Supabase `lhqzqvjwzvkaleiksjob`; projecte sense repositori GitHub connectat | `https://lhqzqvjwzvkaleiksjob.supabase.co` | Esquema exacte de conversa, memòria, cites i embut | Supabase Dashboard | **VERIFICAT**: nom, URL, estat Healthy i “No repository connected” al Dashboard. Taules exactes del CRM: **NO VERIFICAT** |
+| Agenda PHP de proves | Servidor de proves | Repositori local App Beneit Agenda | `https://proves.instalabeneit.es` | `ra406321_agenda_proves` | cPanel/phpMyAdmin i aplicació PHP | **VERIFICAT**: taula `whatsapp_service_requests` i endpoint `POST /api/whatsapp/requests` segons el codi i les comprovacions E2E |
+| Producció | Servidor de producció | `kevinrivm/vocero-crm` i agenda de producció | **NO DOCUMENTAR URL OPERATIVA** | **NO VERIFICAT** en aquest projecte | Prohibit tocar-ho | **VERIFICAT**: queda fora de l’abast |
 
-## Mapa del código
+El CRM de proves no és dins d’aquest repositori. No s’ha identificat un repositori de codi accessible per al CRM; no s’ha d’editar `vocero-beneit` per canviar la UI del CRM.
 
-| Quieres cambiar… | Toca… |
-|---|---|
-| El chasis conductual del agente | `app/prompt.py` (NO relajar los NUNCA) |
-| La capa de persona del negocio | `app/profile.py` (CRM → brief local → mínimo) |
-| Las acciones del bot | `app/tools.py` + orquestación en `app/turn.py` |
-| El contrato con el CRM | `app/crm.py` (espejo del bot gateway de vocero) · prueba gemela del despacho en `tests/test_despacho_raiz.py` |
-| La entrada (despacho del CRM, los dos modos) | `app/dispatch.py` · cola durable `app/dispatch_store.py` + `app/dispatch_worker.py` |
-| Con qué piensa (llave propia o la del CRM por `/api/bot/llm`) | `app/llm.py` (`LlmPorElCrm`) · elección al arranque en `app/main.py` (`_llm_del_arranque`) |
-| Vocero multitenant (modo cloud) | `app/crm_brains.py` (salida por `/api/brains/*`) |
-| Atender a VARIOS negocios a la vez | `app/multiorg.py` |
-| El webhook de Meta que ya no se recibe (503) | `app/webhook_retirado.py` |
-| Seguimiento | `app/followup.py` |
-| Lo que el lead ve en WhatsApp (Markdown → WhatsApp) | `app/formato.py` |
-| El candado de cierre (conversación sin rumbo) | `app/stall.py` + gate 1.5 de `app/turn.py` |
-| `/health` (versión, commit, modo, `llm`, webhook de Meta) | `app/main.py` · `app/version.py` |
-| Tablas en un esquema propio (`DATABASE_SCHEMA`) | `app/db.py` (`PgStore.connect`) |
-| Tablas | `migrations/*.sql` (idempotentes, aplican al boot) |
+## 2. Flux E2E
 
-## Reglas duras
+WhatsApp → CRM → `POST /vocero/dispatch` signat → `book_session` o `manual_proposal` → `app/agenda_bridge.py` → `POST /api/whatsapp/requests` → `whatsapp_service_requests` i feina sense assignar → notificacions, historial, auditoria i cua d’iCloud a l’agenda.
 
-- **El bot NUNCA llama a graph.facebook.com para enviar.** Todo por
-  `POST {CRM}/api/bot/messages`.
-- **Los NUNCA del chasis** (inventar, fingir humano, jerga, datos sensibles,
-  seguir vendiendo a un hostil) viven en `app/prompt.py` — cualquier cambio
-  de prompt re-corre una verificación de comportamiento end-to-end.
-- **`ALLOWED_WA_IDS`**: con valor, solo se responde a esas identidades. No la
-  vacíes sin decisión explícita del dueño de la instancia.
-- **Multi-organización** (`VOCERO_MODE=cloud` + `CRM_ORGANIZATION` vacía): una
-  Nea atiende a varios negocios. Tres reglas que no se negocian:
-  1. **La conversación es de (organización, identidad)**, nunca de la
-     identidad sola. La misma persona puede escribirle a dos negocios, y con
-     la clave global el historial de uno entraba en el prompt del otro.
-  2. **Quien piensa es el CRM**, no Nea. El cliente del modelo apunta a
-     `/api/brains/llm` con la credencial derivada, y el CRM le pone la llave
-     del miembro al reenviar. Si el CRM no ofrece pensar, NO se piensa — ni en
-     el turno ni en el seguimiento: caer a `LLM_API_KEY` del entorno le
-     cobraría al dueño de la plataforma el consumo de todos sus miembros.
-  2b. **Sin modelo que OIGA no se transcribe.** Caer al que conversa devuelve
-     una alucinación con pinta de transcripción, y quien la lee no tiene cómo
-     saber que es falsa.
-  3. **`ctx.crm` y `ctx.llm` se arman por turno.** El del arranque es un
-     centinela que revienta al usarse: un camino que se olvide de armarlos
-     tiene que fallar, no escribirle al negocio equivocado.
-- **Junto a Vocero raíz, `LLM_API_KEY` es opcional** (vocero-crm 036). Vacía,
-  Nea piensa por el CRM: `OpenAiLlm` apunta a `{CRM_BASE_URL}/api/bot/llm`
-  con `CRM_BOT_API_KEY` y el modelo del perfil (`llm.model`; `LLM_MODEL` si
-  no trae). El modelo se relee con el perfil (TTL), sin reiniciar. Un 402
-  `sin_credencial` del CRM es un fallo del proveedor más: silencio + handoff
-  `error`. No aplica en cloud: allá manda `app/multiorg.py`.
-- **La credencial derivada es un contrato con el otro repositorio.** La cadena
-  `vocero:cerebro:v1` y el base64url sin relleno están fijados en pruebas a
-  ambos lados; desviarse un byte da 401 mudo en todo.
-- **Degradación silenciosa**: LLM/CRM fallando jamás rompe el despacho ni manda
-  texto roto; tras reintentos → silencio + handoff `error`.
-- **Un turno sin CRM no se reintenta aquí.** Si el gate 2 no alcanza al CRM,
-  `TurnoSinCrm` sube a la cola del despacho, que le pasa la conversación a una
-  persona (handoff `error`) en cuanto el CRM conteste. Nunca se repite un
-  turno que ya pensó o escribió: sería contestarle dos veces al lead.
-- **Todo lo que sale a WhatsApp pasa por `app/formato.py`** (turno y
-  seguimiento), y el historial guarda lo convertido: WhatsApp no pinta
-  Markdown, y si el modelo se ve escribiéndolo lo sigue escribiendo. Las URL y
-  los correos no se tocan nunca.
-- **El candado de cierre no es para siempre.** Tras la despedida, el relleno
-  (`es_relleno`) se contesta con silencio durante `STALL_COOLDOWN_HOURS`; un
-  mensaje con contenido reabre en el acto, la fase vuelve a descubrimiento y
-  los contadores cuentan desde `stall_since_message_id`. El cierre se anota en
-  la ficha del CRM (`cierre_sin_rumbo`) y se borra al reabrir.
-- **La identidad va en la forma del CRM**, tal como llega en el despacho
-  (`contact.identity`): el teléfono canónico, `bsuid:<id>`, `ig:<id>`,
-  `fb:<id>` o `tt:<id>`. No se reescribe: con otra forma, `/api/bot/context`
-  da 404 y el lead nunca recibe respuesta.
-- **`/health` da 200 mientras la base conteste.** `webhookDeMeta` es
-  información para quien instala, no motivo para que Docker reinicie el
-  contenedor. Y no lleva secretos ni URLs.
-- **El webhook de Meta contesta 503, no 404** (`app/webhook_retirado.py`): una
-  instalación que actualiza sin devolverle el webhook al CRM no pierde
-  mensajes, porque Meta reintenta.
-- **La agenda la manda el CRM.** Vocero registra la oferta contra la
-  conversación (por eso `conversationId` va SIEMPRE en `get_availability`) y
-  decide qué es reservable. `offered_slots` de Nea es un ESPEJO: sirve para
-  etiquetar con el día en palabras y frenar alucinaciones antes del viaje de
-  red. Si el CRM responde `slot_not_offered`, su lista gana y el espejo se
-  resincroniza — no se discute.
-- **La agenda puede no existir.** En Vocero va detrás de la bandera `AGENDA`,
-  apagada por defecto: esos endpoints responden 404 **vacío** (un 404 con el
-  sobre de error del CRM es otra cosa: no existe la conversación o la cita).
-  Se sondea al arrancar y la respuesta caduca cada `AGENDA_PROBE_TTL_SECONDS`
-  (`app/agenda.py`): encender o apagar la bandera en el CRM llega sin
-  reiniciar Nea. Sin agenda no se le enseñan al modelo las herramientas de
-  agendar y el prompt se lo dice.
-- **No se ofrece lo que no hay con qué hacer.** Los recordatorios de la cita
-  existen solo con la agenda v2 de Vocero Cloud (`supports_agenda_v2`): sin
-  ella, `book_session` no lleva `recordatorios_aceptados` y el prompt dice que
-  no hay recordatorios. Un campo obligatorio en una herramienta es una
-  pregunta que el modelo le va a hacer al lead.
+**VERIFICAT al codi de Nea:** el CRM és qui rep WhatsApp i despacha a Nea; Nea respon via l’API del CRM i no envia directament a Meta. El pont d’agenda viu a `app/agenda_bridge.py`/`app/tools.py`.
 
-## Definición de Hecho
+## 3. Accessos i variables
 
-Typecheck + pytest verdes son el piso. "Hecho" = self-test de comportamiento
-end-to-end: conversación real multi-turno, camino feliz e infeliz, iterando
-hasta verde. Prohibido delegar la prueba al dueño.
+Només es documenten noms:
 
-## Credenciales
+| Variable o accés | Ús | Estat/font |
+|---|---|---|
+| `AGENDA_BASE_URL` | URL base de l’agenda de proves | **VERIFICAT** al codi i configuració de desplegament coneguda |
+| `PHASE6_API_TOKEN` | Autenticació del pont cap a l’agenda | **VERIFICAT** al codi i configuració de proves coneguda; el valor mai es mostra |
+| `CRM_BASE_URL` | API del CRM | **VERIFICAT** a `app/config.py` |
+| `CRM_BOT_API_KEY` | Autenticació CRM/agent | **VERIFICAT** a `app/config.py` i `app/dispatch.py` |
+| `DATABASE_URL` | Connexió PostgreSQL | **NO VERIFICAT** com a nom efectiu del desplegament; revisar `Settings`/Render |
+| `DATABASE_SCHEMA` | Esquema PostgreSQL opcional | **VERIFICAT** a `app/db.py`/configuració del projecte |
+| `ALLOWED_WA_IDS`, `TESTER_WA_IDS` | Allowlist i reinici de proves | **VERIFICAT** a `app/config.py` |
+| `VOCERO_MODE`, `CRM_BRAIN_SECRET`, `CRM_ORGANIZATION` | Mode cloud i multi-organització | **VERIFICAT** a `app/config.py` |
+| `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL`, `LLM_TRANSCRIBE_MODEL`, `LLM_REASONING_EFFORT`, `LLM_PROVIDER_SORT`, `LLM_TIMEOUT_SECONDS` | Model i transcripció | **VERIFICAT** a `app/config.py` |
+| Variables de Supabase/CRM | Connexió del projecte “Vocero Beneït Proves” | **NO VERIFICAT**: cal consultar Render/Supabase sense exposar valors |
 
-Nuevas variables → `.env.example` con placeholder `REEMPLAZA_...` y guía
-inline. Jamás secretos en el repo ni en logs.
+## 4. Procediments
+
+### Desplegament
+
+El desplegament automàtic de `main` a Render està documentat per l’estat observat del servei `vocero-nea-proves`; el mètode exacte del servei (auto-deploy, manual o un altre) és **NO VERIFICAT**. Després d’un desplegament, comprovar `/health` i els logs, sense imprimir variables.
+
+### Proves
+
+Comanda local: `pytest`. Resultat de referència verificat: `566 collected`, `536 passed`, `30 skipped`. Els gates de projecte indiquen que typecheck i pytest verds són el mínim de fet.
+
+### Reinici de proves
+
+Nea té `POST /api/bot/reset` com a operació del client CRM, però `app/db.py` també exposa el reinici local de conversa que elimina missatges i `offered_slots` i restableix l’estat de conversa. Els noms i les operacions exactes estan verificats al codi local.
+
+El reinici complet del CRM (cita, embut, memòria del CRM i conversa) **NO ÉS IMPLEMENTABLE DES D’AQUEST REPOSITORI** perquè les taules i l’endpoint administratiu del CRM no hi són. No executar SQL contra Supabase inventant taules o camps. Per a PostgreSQL local, usar només els mètodes existents de `app/db.py` i identificar la conversa per `organization_id`, identitat i `crm_conversation_id`.
+
+### E2E
+
+1. Usar només el número de proves i una conversa identificada.
+2. Confirmar que no hi ha una cita activa al CRM.
+3. Enviar missatge nou, completar dades, proposar i acceptar visita.
+4. Comprovar logs de Render: `/vocero/dispatch` i crida al pont d’agenda sense errors.
+5. Comprovar a `ra406321_agenda_proves`: nova fila `whatsapp_service_requests`, `work_type` no buit, `job_id` i feina amb data nul·la.
+6. Comprovar notificacions, `job_history`, `audit_logs`, `icloud_sync_queue` i idempotència.
+
+## 5. Regles de comportament
+
+- Llegir aquest fitxer abans de cada tasca. Si contradiu la petició o la font real, avisar i no improvisar.
+- Descobrir els fets a la configuració real i al codi. Màxim tres intents per hipòtesi, cadascun amb evidència.
+- Treballar només a PROVES. Cap operació destructiva massiva; esborrats només per ID, amb còpia prèvia i transacció quan el sistema ho permeti.
+- Mai imprimir secrets ni valors d’entorn.
+- No inventar imports, endpoints, taules ni camps; mantenir signatures i canvis mínims.
+- No donar res per bo sense evidència en SQL i logs.
+- Actualitzar aquest fitxer quan es descobreixi o corregeixi un fet.
+
+## 6. NO VERIFICAT / pendent de confirmar
+
+- Repositori exacte del CRM de proves i el seu mètode de desplegament.
+- Esquema i noms de taules del CRM a Supabase per a converses, memòria, cites i embut.
+- Variables exactes configurades actualment a Render, només noms i mai valors.
+- Endpoint administratiu oficial per cancel·lar una cita del CRM sense handoff.
+- Procediment reversible oficial per reiniciar una conversa del CRM.
+- Si Supabase és només el CRM o també conté dades addicionals del servei.
+
