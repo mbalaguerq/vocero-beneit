@@ -32,10 +32,8 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    ".next-supabase/types/**/*.ts",
     ".next/types/**/*.ts",
-    "next-env.d.ts",
-    ".next-cpanel/types/**/*.ts"
+    "next-env.d.ts"
   ],
   "exclude": [
     "node_modules",
