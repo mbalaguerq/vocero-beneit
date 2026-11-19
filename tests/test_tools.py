@@ -78,6 +78,40 @@ async def test_book_acepta_slot_ofrecido_epoch_exacto(runtime_y_ctx, respx_mock)
     assert await ctx.store.get_offered_slots(conv.id) == []
 
 
+async def test_book_acepta_propuesta_manual_sin_slot_previamente_ofrecido(runtime_y_ctx, respx_mock):
+    runtime, ctx, conv = runtime_y_ctx
+    respx_mock.post(f"{CRM_URL}/api/bot/bookings").mock(
+        return_value=httpx.Response(201, json={"bookingId": "bk-manual", "label": "demà a les 10:00"})
+    )
+    respx_mock.put(f"{CRM_URL}/api/bot/ficha").mock(
+        return_value=httpx.Response(200, json={})
+    )
+    result = await runtime.execute(
+        "book_session",
+        {
+            "start_utc": SLOT_ISO,
+            "dia_confirmado": "Sí, demà a les 10:00",
+            "manual_proposal": True,
+        },
+    )
+    assert result["ok"] is True
+    assert runtime.booked is True
+    assert await ctx.store.get_offered_slots(conv.id) == []
+
+
+async def test_book_rebut_proposta_manual_incompleta(runtime_y_ctx, respx_mock):
+    runtime, _, _ = runtime_y_ctx
+    bookings = respx_mock.post(f"{CRM_URL}/api/bot/bookings").mock(
+        return_value=httpx.Response(201, json={"bookingId": "no"})
+    )
+    result = await runtime.execute(
+        "book_session",
+        {"start_utc": SLOT_ISO, "manual_proposal": True},
+    )
+    assert result == {"ok": False, "error": "confirmacion_manual_incompleta"}
+    assert bookings.call_count == 0
+
+
 async def test_booking_confirmation_includes_authoritative_meeting_link(runtime_y_ctx):
     runtime, _, _ = runtime_y_ctx
     runtime.booking_confirmation = {"label":"viernes 18 de septiembre, 10:00 am","meeting_url":"https://zoom.us/j/123","link_pending":False,"reminder_consent":True}

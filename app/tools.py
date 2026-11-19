@@ -115,7 +115,9 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "Reserva la cita en uno de los horarios previamente ofrecidos. "
                 "start_utc debe ser EXACTAMENTE el start_utc de un slot ofrecido "
                 "en esta conversación. Llámala SOLO después de haber nombrado el "
-                "día completo y de que el lead lo aceptara sin ambigüedad."
+                "día completo y de que el lead lo aceptara sin ambigüedad. Si el "
+                "equipo propuso manualmente un día y hora concretos y el lead "
+                "los acepta, usa manual_proposal=true."
             ),
             "parameters": {
                 "type": "object",
@@ -131,6 +133,10 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                             "Si no puedes citarlo, todavía no confirmó: pregunta "
                             "en vez de reservar."
                         ),
+                    },
+                    "manual_proposal": {
+                        "type": "boolean",
+                        "description": "true solo para una propuesta manual del equipo ya aceptada por el lead",
                     },
                 },
                 "required": ["start_utc", "dia_confirmado"],
@@ -845,9 +851,20 @@ class ToolRuntime:
         }
 
     async def _book_session(self, args: dict[str, Any]) -> dict[str, Any]:
-        chosen, error = await self._resolve_offered(args, "book_session")
-        if error is not None or chosen is None:
-            return error or {"ok": False, "error": "slot_no_ofrecido"}
+        if args.get("manual_proposal") is True:
+            wanted = _parse_utc(str(args.get("start_utc") or ""))
+            if wanted is None or not str(args.get("dia_confirmado") or "").strip():
+                return {"ok": False, "error": "confirmacion_manual_incompleta"}
+            chosen = OfferedSlot(
+                conversation_id=self._conv.id,
+                start_utc=wanted,
+                end_utc=None,
+                label=str(args.get("dia_confirmado") or "")[:160],
+            )
+        else:
+            chosen, error = await self._resolve_offered(args, "book_session")
+            if error is not None or chosen is None:
+                return error or {"ok": False, "error": "slot_no_ofrecido"}
         try:
             consent = args.get("recordatorios_aceptados") is True
             if getattr(self._ctx.crm, "supports_agenda_v2", False):
