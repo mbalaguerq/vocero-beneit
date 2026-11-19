@@ -99,3 +99,11 @@ El reinici complet del CRM (cita, embut, memòria del CRM i conversa) **NO ÉS I
 - **VERIFICAT al servidor/codi:** no s’ha trobat una ruta `src/app/api/bot/reset/route.ts` ni cap ruta equivalent `bot/reset` al llistat d’API.
 - **VERIFICAT al servidor/codi:** `src/server/inbox/eliminar.ts` conté la rutina interna de retirada d’una conversa i tractament d’adjunts; no s’ha executat.
 
+## 9. Separació de repositoris (VERIFICAT el 2026-11-19)
+
+- **VERIFICAT per GitHub:** `mbalaguerq/vocero-beneit` és el repositori de l’agent Nea; `main` ha quedat restaurada al commit `d1815ee` mitjançant PR #3 i la branca de salvaguarda és `backup/main-with-crm-20261119`.
+- **VERIFICAT per GitHub:** el CRM Next.js viu separat a `mbalaguerq/vocero-crm-beneit` (repositori privat). La seva font local continua sent `C:\laragon\www\App Beneit Agenda\vocero-beneit`; la còpia del CRM encara requereix una separació física local abans de treballar-hi en paral·lel.
+- **VERIFICAT per Render:** `vocero-nea-proves` usa `mbalaguerq/vocero-beneit`, està desplegat al commit `d1815ee` i `/health` respon 200. L’auto-deploy queda desactivat mentre dura la separació.
+- **REGLA:** mai desplegar el CRM Next.js a `vocero-nea-proves`; el CRM de proves s’ha de desplegar a `vocero.instalabeneit.es` via cPanel.
+- **NO VERIFICAT:** el procediment efectiu de Node.js/Next.js configurat a cPanel, la base de dades real del CRM de proves i l’accés necessari per desplegar-hi.
+
