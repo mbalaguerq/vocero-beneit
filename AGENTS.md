@@ -11,7 +11,7 @@ Actualitzat el 2026-11-19. Aquest document conté només noms de variables, rute
 | Agenda PHP de proves | Servidor de proves | Repositori local App Beneit Agenda | `https://proves.instalabeneit.es` | `ra406321_agenda_proves` | cPanel/phpMyAdmin i aplicació PHP | **VERIFICAT**: taula `whatsapp_service_requests` i endpoint `POST /api/whatsapp/requests` segons el codi i les comprovacions E2E |
 | Producció | Servidor de producció | `kevinrivm/vocero-crm` i agenda de producció | **NO DOCUMENTAR URL OPERATIVA** | **NO VERIFICAT** en aquest projecte | Prohibit tocar-ho | **VERIFICAT**: queda fora de l’abast |
 
-El projecte Supabase “Vocero Beneït Proves” és buit i **NO S’USA**, segons l’usuari i les comprovacions del Dashboard: no hi ha taules públiques, funcions, Edge Functions ni buckets visibles. Segons l’usuari, el codi complet del CRM existeix localment i és la font de veritat; la ruta local exacta encara no s’ha pogut verificar. El webroot vist al cPanel (`/home/ra406321/vocero.instalabeneit.es`) estava buit, de manera que no permet identificar el codi ni la BD efectiva del CRM. No s’ha d’editar ni reiniciar cap BD fins identificar-los.
+El projecte Supabase “Vocero Beneït Proves” és buit i **NO S’USA**, segons l’usuari i les comprovacions del Dashboard: no hi ha taules públiques, funcions, Edge Functions ni buckets visibles. Segons l’usuari, el codi complet del CRM existeix localment i és la font de veritat; la ruta local exacta encara no s’ha pogut verificar. El codi desplegat del CRM sí que s’ha localitzat al servidor, a `/home/ra406321/vocero.instalabeneit.es`, incloent `src/app/api/`, `src/server/` i `drizzle/`. El File Manager no mostrava els fitxers ocults; el terminal de cPanel els ha confirmat.
 
 ## 2. Flux E2E
 
@@ -36,13 +36,15 @@ Només es documenten noms:
 | `LLM_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL`, `LLM_TRANSCRIBE_MODEL`, `LLM_REASONING_EFFORT`, `LLM_PROVIDER_SORT`, `LLM_TIMEOUT_SECONDS` | Model i transcripció | **VERIFICAT** a `app/config.py` |
 | `PORT` | Port del servei Render | **VERIFICAT** a Render |
 | Variables de Render del servei | Render mostra exactament `AGENDA_BASE_URL`, `CRM_BASE_URL`, `CRM_BOT_API_KEY`, `DATABASE_SCHEMA`, `DATABASE_URL`, `PHASE6_API_TOKEN`, `PORT` | **VERIFICAT** al servei Render `vocero-nea-proves`; els valors no es documenten |
-| Variables internes del CRM/Supabase | Configuració del CRM | **NO VERIFICAT**: el projecte Supabase no exposa les variables del servei CRM |
+| `DATABASE_URL` | Connexió Drizzle/PostgreSQL del CRM | **VERIFICAT al procés i a la configuració del webroot**: el procés Node exposa el nom de variable; el `.env` del webroot identifica l’objectiu com a PostgreSQL `vocero`, usuari `postgres`, host `localhost`, port `5432`; el valor complet no es documenta |
+| `AGENDA_REQUESTS_BASE_URL`, `AGENDA_REQUESTS_TOKEN`, `BOT_API_KEY`, `IG_GRAPH_BASE_URL`, `IG_GRAPH_API_VERSION`, `META_GRAPH_API_VERSION`, `META_GRAPH_BASE_URL`, `OPENROUTER_API_TOKEN`, `ZERNIO_BASE_URL` | Configuració del CRM desplegat | **VERIFICAT com a noms** per la lectura del codi/configuració de `vocero.instalabeneit.es`; els valors no es documenten |
+| Variables internes del projecte Supabase | Configuració del CRM | **NO VERIFICAT**: el projecte Supabase consultat és buit i no s’utilitza segons l’usuari |
 
 ## 4. Procediments
 
 ### Desplegament
 
-Render verifica el servei `vocero-nea-proves` connectat a `mbalaguerq/vocero-beneit`, branca `main`, runtime Docker, URL pública `https://vocero-nea-proves.onrender.com`, amb desplegament automàtic. El CRM de proves allotjat a `vocero.instalabeneit.es` és una còpia servida per cPanel segons l’usuari; el mecanisme concret de pujada i la ruta efectiva del document root són **NO VERIFICATS**.
+Render verifica el servei `vocero-nea-proves` connectat a `mbalaguerq/vocero-beneit`, branca `main`, runtime Docker, URL pública `https://vocero-nea-proves.onrender.com`, amb desplegament automàtic. El CRM de proves allotjat a `vocero.instalabeneit.es` és una còpia servida per cPanel segons l’usuari; el webroot/codi desplegat s’ha verificat a `/home/ra406321/vocero.instalabeneit.es`. La pujada concreta (File Manager, FTP o un altre mecanisme) continua **NO VERIFICADA**.
 
 ### Proves
 
@@ -50,7 +52,7 @@ Comanda local: `pytest`. Resultat de referència verificat: `566 collected`, `53
 
 ### Reinici de proves
 
-Nea té `POST /api/bot/reset` com a operació del client CRM, però `app/db.py` també exposa el reinici local de conversa que elimina missatges i `offered_slots` i restableix l’estat de conversa. Els noms i les operacions exactes estan verificats al codi local.
+Nea té `POST /api/bot/reset` com a operació del client CRM, però no s’ha trobat aquesta ruta al CRM desplegat: l’inventari de `src/app/api/**/route.ts` no conté `bot/reset`. El CRM sí que té una rutina interna a `src/server/inbox/eliminar.ts` que retira una conversa i tracta els fitxers adjunts; el seu endpoint públic i el seu abast complet no estan confirmats. `app/db.py` del servei Nea també exposa el reinici local de conversa que elimina missatges i `offered_slots` i restableix l’estat de conversa.
 
 El reinici complet del CRM (cita, embut, memòria del CRM i conversa) **NO ÉS IMPLEMENTABLE DES D’AQUEST REPOSITORI** perquè el projecte Supabase consultat no mostra taules públiques del CRM i no s’ha identificat el backend/BD real. No executar SQL contra Supabase inventant taules o camps. Per a PostgreSQL local, usar només els mètodes existents de `app/db.py` i identificar la conversa per `organization_id`, identitat i `crm_conversation_id`.
 
@@ -76,11 +78,10 @@ El reinici complet del CRM (cita, embut, memòria del CRM i conversa) **NO ÉS I
 ## 6. NO VERIFICAT / pendent de confirmar
 
 - Ruta local exacta del repositori/codi complet del CRM.
-- Backend/BD real que alimenta `vocero.instalabeneit.es`; el Supabase consultat no mostra taules públiques del CRM i el directori de cPanel inspeccionat estava buit.
-- Esquema i noms de taules del CRM per a converses, memòria, cites i embut.
+- Ruta local exacta del repositori/codi complet del CRM; la còpia desplegada sí és a `/home/ra406321/vocero.instalabeneit.es`.
+- Confirmació de connexió de lectura a la BD: el servidor no té `psql` CLI disponible; la configuració apunta a PostgreSQL local `vocero`, però no s’ha executat cap consulta SQL.
 - Endpoint administratiu oficial per cancel·lar una cita del CRM sense handoff.
 - Procediment reversible oficial per reiniciar una conversa del CRM.
-- Nom, usuari i host de la BD real del CRM de cPanel.
 - Procediment de desplegament efectiu del CRM a cPanel.
 - Si el projecte Supabase és només un projecte buit sense ús (la dada d’ús/no ús és **VERIFICADA per l’usuari**, però la relació exacta amb el CRM no és observable al Dashboard).
 
@@ -89,4 +90,12 @@ El reinici complet del CRM (cita, embut, memòria del CRM i conversa) **NO ÉS I
 - **VERIFICAT per l’usuari:** `vocero.instalabeneit.es` és el CRM de proves, allotjat a cPanel al mateix servidor que `proves.instalabeneit.es` i `agenda.instalabeneit.es`.
 - **VERIFICAT per l’usuari:** el codi complet del CRM és local, és la font de veritat i la còpia del domini només existeix per oferir una URL de proves.
 - **VERIFICAT per l’usuari:** el projecte Supabase “Vocero Beneït Proves” és buit i no s’utilitza.
+
+## 8. Descoberta del CRM al servidor
+
+- **VERIFICAT al servidor/cPanel:** el codi desplegat és a `/home/ra406321/vocero.instalabeneit.es`; el directori conté `src/app/api`, `src/server`, `drizzle`, `.next`, scripts i proves.
+- **VERIFICAT al servidor/codi:** el CRM usa Next.js i Drizzle amb dialecte PostgreSQL; les migracions visibles de `drizzle/` defineixen, entre altres, `contact`, `conversation`, `message`, `lead`, `lead_stage_event`, `pipeline_stage`, `offered_slots`/equivalent segons el codi de Nea, `organization`, `member`, `user`, `session`, `media_asset` i taules de credencials.
+- **VERIFICAT al servidor/configuració:** el `.env` del webroot conté `DATABASE_URL` apuntant a PostgreSQL local amb base `vocero`, usuari `postgres`, host `localhost` i port `5432`; no es documenta el valor complet.
+- **VERIFICAT al servidor/codi:** no s’ha trobat una ruta `src/app/api/bot/reset/route.ts` ni cap ruta equivalent `bot/reset` al llistat d’API.
+- **VERIFICAT al servidor/codi:** `src/server/inbox/eliminar.ts` conté la rutina interna de retirada d’una conversa i tractament d’adjunts; no s’ha executat.
 
