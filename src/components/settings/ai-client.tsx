@@ -143,7 +143,7 @@ export function AiClient() {
     if (!res?.ok) {
       setMensaje({
         kind: "error",
-        text: await leerError(res, "No se pudo probar la conexión"),
+        text: await leerError(res, "No s'ha pogut provar la connexió"),
       });
       return;
     }
@@ -173,7 +173,7 @@ export function AiClient() {
     if (!res?.ok) {
       setMensaje({
         kind: "error",
-        text: await leerError(res, "No se pudo traer la lista de modelos"),
+        text: await leerError(res, "No s'ha pogut obtenir la llista de models"),
       });
       return;
     }
@@ -210,7 +210,7 @@ export function AiClient() {
     if (!res?.ok) {
       setMensaje({
         kind: "error",
-        text: await leerError(res, "No se pudo guardar. Revisa los datos e inténtalo de nuevo."),
+        text: await leerError(res, "No s'ha pogut desar. Revisa les dades i torna-ho a provar."),
       });
       return;
     }
@@ -232,7 +232,7 @@ export function AiClient() {
     );
     setOcupado(null);
     if (!res?.ok) {
-      setMensaje({ kind: "error", text: "No se pudo quitar la llave." });
+      setMensaje({ kind: "error", text: "No s'ha pogut eliminar la clau." });
       return;
     }
     const data = (await res.json()) as Vista;
@@ -408,7 +408,7 @@ export function AiClient() {
                 type="submit"
                 disabled={ocupado !== null || !puedeProbar}
               >
-                {ocupado === "guardar" ? "Guardando…" : "Guardar"}
+                {ocupado === "guardar" ? "Desant…" : "Desa"}
               </Button>
               {cred && (
                 <button

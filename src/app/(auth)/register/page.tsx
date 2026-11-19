@@ -31,7 +31,7 @@ export default function RegisterPage() {
       } else if (err.status === 429) {
         setError("Demasiados intentos. Espera unos minutos.");
       } else {
-        setError(err.message ?? "No se pudo crear la cuenta.");
+        setError(err.message ?? "No s'ha pogut crear el compte.");
       }
       return;
     }
@@ -86,7 +86,7 @@ export default function RegisterPage() {
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Creando…" : "Crear cuenta"}
+            {loading ? "Creant…" : "Crea el compte"}
           </Button>
           <p className="text-center text-sm text-muted-foreground">
             ¿Ya tienes cuenta?{" "}

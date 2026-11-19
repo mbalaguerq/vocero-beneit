@@ -65,9 +65,9 @@ export function channelList(labels: readonly string[]): string {
 /** 028 — El texto de la bandeja vacía, con los canales encendidos. */
 export function emptyInboxDescription(labels: readonly string[]): string {
   if (labels.length <= 1) {
-    return "Cuando alguien escriba a tu número de WhatsApp, su conversación aparecerá aquí en tiempo real.";
+    return "Quan algú escrigui al teu número de WhatsApp, la seva conversa apareixerà aquí en temps real.";
   }
-  return `Cuando alguien te escriba por ${channelList(labels)}, su conversación aparecerá aquí en tiempo real.`;
+  return `Quan algú t'escrigui per ${channelList(labels)}, la seva conversa apareixerà aquí en temps real.`;
 }
 
 export function previewText(preview: string | null): string {

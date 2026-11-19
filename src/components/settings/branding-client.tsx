@@ -99,7 +99,7 @@ export function BrandingClient({
       const data = (await res?.json().catch(() => null)) as {
         error?: { message?: string };
       } | null;
-      setError(data?.error?.message ?? "No se pudo guardar");
+      setError(data?.error?.message ?? "No s'ha pogut desar");
       return;
     }
     setSaved(true);
@@ -151,7 +151,7 @@ export function BrandingClient({
               ))}
             </select>
             <p className="text-xs text-text-3">
-              Es la única que el Pipeline suma. Los montos capturados en otra
+              Es la única que el embudo suma. Los montos capturados en otra
               moneda se muestran, pero quedan fuera del total de su columna.
             </p>
           </div>
@@ -220,7 +220,7 @@ export function BrandingClient({
               </div>
               <span className={cn(navItemClass(true), "mt-3")}>
                 <Inbox className="h-[17px] w-[17px] text-brand" strokeWidth={1.8} />
-                <span className="flex-1">Bandeja</span>
+                <span className="flex-1">Safata</span>
               </span>
             </div>
             <div
@@ -236,7 +236,7 @@ export function BrandingClient({
           {error && <p className="text-sm text-destructive">{error}</p>}
           {saved && <p className="text-sm" style={{ color: previewSet.text }}>Marca guardada ✓</p>}
           <Button disabled={saving || !name.trim()} onClick={() => void save()}>
-            {saving ? "Guardando…" : "Guardar marca"}
+            {saving ? "Desant…" : "Desa la marca"}
           </Button>
         </CardContent>
       </Card>

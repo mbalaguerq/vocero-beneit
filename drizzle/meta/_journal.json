@@ -169,6 +169,13 @@
       "when": 1794581000000,
       "tag": "0023_retira_leads_delembut",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1794929000000,
+      "tag": "0024_enable_rls_public_tables",
+      "breakpoints": true
     }
   ]
 }

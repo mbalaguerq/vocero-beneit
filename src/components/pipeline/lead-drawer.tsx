@@ -213,7 +213,7 @@ export function LeadDrawer({
             )}
 
             <Button className="mt-3 w-full" variant="ghost" onClick={onArchive}>
-              <Archive className="h-4 w-4" /> Retira de l'embut
+              <Archive className="h-4 w-4" /> Retira de l&apos;embut
             </Button>
           </section>
 

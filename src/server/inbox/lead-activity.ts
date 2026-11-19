@@ -55,7 +55,10 @@ export async function onLeadActivity(
     }
     await db
       .update(schema.lead)
-      .set({ lastActivityAt: at, updatedAt: new Date() })
+      // Un missatge nou reactiva també els leads retirats/arxivats de l'embut.
+      // Això evita que la conversa aparegui a la Safata però quedi invisible
+      // al tauler després que l'equip l'hagi retirat manualment.
+      .set({ archivedAt: null, lastActivityAt: at, updatedAt: new Date() })
       .where(eq(schema.lead.id, existing[0].id));
     return;
   }

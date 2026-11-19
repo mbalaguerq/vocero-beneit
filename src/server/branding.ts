@@ -44,11 +44,19 @@ export async function getBrandingContext(
         .limit(1);
   if (!rows[0]) return { organizationId: null, branding: DEFAULT_BRANDING };
   const meta = parseMetadata(rows[0].metadata);
+  const stored = meta.branding as Partial<Branding> | undefined;
+  // La instància de proves venia amb la marca genèrica Vocero. La migrem
+  // visualment a Beneït sense tocar cap marca personalitzada que l'equip ja
+  // hagi desat des de Configuració → Marca.
+  const effective =
+    stored?.name === "Vocero"
+      ? null
+      : stored?.accent === "#0d5bff" || stored?.accent === "#102d48"
+        ? { ...stored, accent: DEFAULT_BRANDING.accent }
+        : stored;
   return {
     organizationId: rows[0].id,
-    branding: normalizeBranding(
-      (meta.branding as Partial<Branding> | undefined) ?? null
-    ),
+    branding: normalizeBranding(effective ?? null),
   };
 }
 

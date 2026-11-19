@@ -58,7 +58,7 @@ function InboxEmptyState({
     <EmptyState
       icon={Inbox}
       className="h-full"
-      title="Sin conversaciones todavía"
+      title="Encara no hi ha converses"
       description={emptyInboxDescription(channels.map((ch) => CHANNEL_LABEL[ch]))}
       action={
         !failed && (
@@ -69,7 +69,7 @@ function InboxEmptyState({
             onClick={() => void seed()}
           >
             <Sparkles className="h-4 w-4" strokeWidth={1.7} />
-            {seeding ? "Cargando demo…" : "Cargar datos de demostración"}
+            {seeding ? "Carregant la demo…" : "Carrega dades de demostració"}
           </Button>
         )
       }
@@ -141,8 +141,8 @@ export function ConversationList({
   // anuncia no se le pinta un botón que siempre dice 0. Si está elegido, se
   // queda, para poder salir de él aunque el contador baje a cero.
   const filtros: { id: typeof filter; label: string; count: number }[] = [
-    { id: "all", label: "Todas", count: inInbox.length },
-    { id: "unread", label: "No leídas", count: unreadCount },
+    { id: "all", label: "Totes", count: inInbox.length },
+    { id: "unread", label: "No llegides", count: unreadCount },
   ];
   if (deAnuncios.length > 0 || filter === "anuncios") {
     filtros.push({ id: "anuncios", label: "Anuncios", count: deAnuncios.length });
@@ -167,7 +167,7 @@ export function ConversationList({
     <div className="flex h-full flex-col">
       <header className="border-b px-4 pb-3 pt-4">
         <div className="mb-3 flex items-center gap-2">
-          <h2 className="text-[17px] font-bold tracking-tight">Bandeja</h2>
+          <h2 className="text-[17px] font-bold tracking-tight">Safata</h2>
           <span className="font-mono text-[12px] text-text-3">{conversations.length}</span>
           {multiChannel && (
             <div className="ml-auto flex items-center gap-1">
@@ -180,7 +180,7 @@ export function ConversationList({
                     aria-pressed={on}
                     title={
                       on
-                        ? "Ver todas las bandejas"
+                        ? "Veure totes les safates"
                         : `Ver solo ${CHANNEL_LABEL[ch]}`
                     }
                     className={cn(
@@ -207,8 +207,8 @@ export function ConversationList({
           <Search className="h-4 w-4 shrink-0 text-text-3" strokeWidth={1.7} />
           <input
             ref={inputRef}
-            placeholder="Buscar por nombre o teléfono…"
-            aria-label="Buscar conversación"
+            placeholder="Cerca per nom o telèfon…"
+            aria-label="Cercar conversa"
             defaultValue=""
             onChange={(e) => setQuery(e.target.value)}
             className="w-full bg-transparent text-[13px] outline-none placeholder:text-text-3"
@@ -290,7 +290,7 @@ export function ConversationList({
             stage === "all" &&
             !conversations.some((c) => c.channel === inbox)
               ? `Nadie ha escrito por ${CHANNEL_LABEL[inbox]} todavía.`
-              : "Sin resultados para este filtro."}
+              : "No hi ha resultats per a aquest filtre."}
           </p>
         ) : (
           <ul>

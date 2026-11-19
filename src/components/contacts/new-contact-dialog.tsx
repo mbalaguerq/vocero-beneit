@@ -70,7 +70,7 @@ export function NewContactDialog({
     setSaving(false);
 
     if (!res) {
-      setError("No se pudo guardar. Revisa tu conexión.");
+      setError("No s'ha pogut desar. Revisa la connexió.");
       return;
     }
     const data = (await res.json().catch(() => null)) as {
@@ -83,7 +83,7 @@ export function NewContactDialog({
       return;
     }
     if (!res.ok) {
-      setError(data?.error?.message ?? "No se pudo guardar el contacto");
+      setError(data?.error?.message ?? "No s'ha pogut desar el contacte");
       return;
     }
     onCreated();
@@ -100,11 +100,11 @@ export function NewContactDialog({
     >
       <div
         role="dialog"
-        aria-label="Nuevo contacto"
+        aria-label="Contacte nou"
         className="w-full max-w-md rounded-lg border bg-popover p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="mb-1 font-semibold">Nuevo contacto</h3>
+        <h3 className="mb-1 font-semibold">Contacte nou</h3>
         <p className="mb-4 text-xs text-text-3">
           Para prospectos que no llegaron por WhatsApp: referidos, gente que te
           escribió por otra red, conocidos.
@@ -211,7 +211,7 @@ export function NewContactDialog({
         {error && <p className="mt-3 text-xs text-danger-text">{error}</p>}
         {stages.length === 0 && (
           <p className="mt-3 text-xs text-warning-text">
-            Tu embudo no tiene etapas abiertas. Crea una en el Pipeline antes de
+              El embudo no tiene etapas abiertas. Crea una antes de
             capturar contactos.
           </p>
         )}
@@ -224,7 +224,7 @@ export function NewContactDialog({
             disabled={!listo || saving || stages.length === 0}
             onClick={() => void guardar()}
           >
-            {saving ? "Guardando…" : "Crear contacto"}
+            {saving ? "Desant…" : "Crea el contacte"}
           </Button>
         </div>
       </div>

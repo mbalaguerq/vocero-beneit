@@ -59,6 +59,8 @@ services:
       # Opcionales: vacías = apagadas (guía de cada una en .env.example).
       CHANNELS: ${CHANNELS:-}
       AGENDA: ${AGENDA:-}
+      AGENDA_REQUESTS_BASE_URL: ${AGENDA_REQUESTS_BASE_URL:-}
+      AGENDA_REQUESTS_TOKEN: ${AGENDA_REQUESTS_TOKEN:-}
       ATRIBUCION: ${ATRIBUCION:-}
       BOT_API_KEY: ${BOT_API_KEY:-}
       # 2.0 — El cerebro: por defecto, el servicio `nea` de abajo. Con la

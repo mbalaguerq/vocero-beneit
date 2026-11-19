@@ -9,7 +9,8 @@ const SEED_STAGES: { name: string; kind: "open" | "won" | "lost" }[] = [
   { name: "Revisió de l'equip", kind: "open" },
   { name: "Proposta de visita", kind: "open" },
   { name: "Visita confirmada", kind: "open" },
-  { name: "Client / feina en curs", kind: "won" },
+  { name: "Client / feina en curs", kind: "open" },
+  { name: "Treball realitzat", kind: "won" },
   { name: "Tancada / Perduda", kind: "lost" },
 ];
 

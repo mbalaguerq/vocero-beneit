@@ -13,6 +13,7 @@ const STAGE_LABELS: Record<string, string> = {
   "Proposta de visita": "Proposta de visita",
   "Visita confirmada": "Visita confirmada",
   "Client / feina en curs": "Client / feina en curs",
+  "Treball realitzat": "Treball realitzat",
   "Tancada / Perduda": "Tancada / Perduda",
 };
 

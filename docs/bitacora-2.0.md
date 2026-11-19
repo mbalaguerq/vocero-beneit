@@ -4,6 +4,36 @@ Qué se hizo, cómo se probó y dónde vive cada cosa. Una entrada por spec.
 Nunca valores de secretos: como mucho, sus últimos 4. El plan está en
 `PLAN-2.0.md` del espacio de trabajo del autor; las specs, en `specs/`.
 
+## 2026-11-05 — Preparación de prueba local con Meta
+
+### Estado
+
+- La instancia local arranca en `http://127.0.0.1:3000`; `GET /api/health`
+  respondió 200, con `ok: true` y `mediaWritable: true`.
+- La base local tiene la tabla de credenciales de Meta y una conexión de
+  WhatsApp de prueba/mock. No se verificó ni se usó un número real de Meta.
+- Las pruebas unitarias de webhook, registro, credenciales y cliente Meta
+  pasaron: 45/45. `tsc --noEmit` también pasó.
+- El `.env` local está preparado para el mock: `WA_MOCK_ENABLED=true`,
+  `META_GRAPH_BASE_URL` apunta al endpoint local del mock y `APP_BASE_URL` es
+  localhost. `META_APP_SECRET` no está configurado.
+- No se abrió un túnel público ni se hicieron llamadas reales a Meta.
+
+### Bloqueo y siguiente paso
+
+Meta impide completar el registro de desarrollador desde el dispositivo actual
+por una comprobación de seguridad («device you don't usually use»). Hay que
+esperar a que Meta permita el cambio o completar el registro desde un
+dispositivo habitual del propietario de la cuenta; no intentar eludir la
+comprobación.
+
+Cuando Meta lo permita: crear/abrir la app de desarrollador, añadir WhatsApp,
+obtener el Phone Number ID, WABA ID y token de prueba, verificar un destinatario
+de prueba, y guardar el App Secret solo en el `.env` local. Después, sustituir
+la conexión mock desde Configuración → WhatsApp, desactivar los mocks para la
+prueba real y abrir un túnel HTTPS temporal para validar el handshake y un
+mensaje entrante. No compartir ni registrar tokens o secretos.
+
 ## 2026-10-13 — 025: el despacho recuerda qué debe
 
 **PR**: [#111](https://github.com/kevinrivm/vocero-crm/pull/111), rama

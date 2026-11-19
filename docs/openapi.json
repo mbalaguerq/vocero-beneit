@@ -83,6 +83,22 @@
         }
       }
     },
+    "/api/bot/agenda-request": {
+      "post": {
+        "summary": "Crear una solicitud completa en la Agenda Beneit",
+        "description": "Fase 6 — Solo para conversaciones reales de WhatsApp. El cerebro llama cuando ya reunió nombre, teléfono, dirección del servicio, tipo de trabajo y descripción. Vocero verifica la conversación, usa el teléfono asociado al contacto cuando existe y envía la solicitud al endpoint configurado de Agenda. El token de Agenda nunca se entrega al cerebro. Reintenta con el mismo `sourceEventId` si hay timeout: Agenda es idempotente por evento.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["sourceEventId", "conversationId", "clientName", "phone", "address", "workType", "description"], "properties": { "sourceEventId": { "type": "string", "maxLength": 255 }, "conversationId": { "type": "string" }, "clientName": { "type": "string", "maxLength": 180 }, "phone": { "type": "string", "maxLength": 40 }, "address": { "type": "string", "maxLength": 255 }, "workType": { "type": "string", "maxLength": 180 }, "description": { "type": "string", "maxLength": 10000 } } } } } },
+        "responses": {
+          "200": { "description": "Solicitud creada o reintento idempotente", "content": { "application/json": { "schema": { "type": "object", "required": ["requestId", "status", "duplicate"], "properties": { "requestId": { "type": "string" }, "status": { "type": "string" }, "duplicate": { "type": "boolean" } } } } } },
+          "401": { "description": "Falta una BOT_API_KEY válida" },
+          "404": { "description": "La conversación real de WhatsApp no existe" },
+          "409": { "description": "No hay organización o Agenda detectó un conflicto idempotente" },
+          "422": { "description": "Datos incompletos o inválidos" },
+          "502": { "description": "Agenda inaccesible o rechazo del servicio upstream" },
+          "503": { "description": "Conector de Agenda no configurado" }
+        }
+      }
+    },
     "/api/bot/stage": {
       "post": {
         "summary": "Mover al lead a una etapa siguiente del pipeline",
