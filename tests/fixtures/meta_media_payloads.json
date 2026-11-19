@@ -1,0 +1,141 @@
+{
+  "_meta": {
+    "capturado": "2026-07-20 via CAPTURE_PAYLOADS en producción (spec 002 T001)",
+    "notas": [
+      "La `url` de lookaside.fbsbx.com caduca ~5 min (ext = epoch de expiración): la descarga durable es media id → GET graph/{id} → url fresca → GET con Bearer.",
+      "El número manda `from_user_id` (BSUID de coexistencia) ADEMÁS de `from` en todos los mensajes.",
+      "`unsupported` (código 131060) llega cuando el tipo no es entregable a la Cloud API (p. ej. ver-una-vez): hay que responder con fallback honesto, no con silencio.",
+      "`reaction` no debe generar turno (solo relay)."
+    ]
+  },
+  "audio_nota_de_voz": {
+    "from": "5215550001111",
+    "from_user_id": "MX.1344220711026394",
+    "id": "wamid.HBgNNTIxNDYyMTM0OTc2OBUCABIYFjNFQjBCRDQxNjk5MUYyM0VCMUE4QjYA",
+    "timestamp": "1784583107",
+    "type": "audio",
+    "audio": {
+      "mime_type": "audio/ogg; codecs=opus",
+      "sha256": "ZeG2mDaNK1/86W+ud3hgrXDRsWcSP0amcm1VlaaRH04=",
+      "id": "1573159484354586",
+      "url": "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=1573159484354586&source=webhook&ext=1784583409&hash=ATyPMm5zq8aO-Ao8T2GClbz__ChN06PE29YZ4c6zG9kQGw",
+      "voice": true
+    }
+  },
+  "imagen_con_caption": {
+    "from": "5215550001111",
+    "from_user_id": "MX.1344220711026394",
+    "id": "wamid.HBgNNTIxNDYyMTM0OTc2OBUCABIYFjNFQjBENjI4QzhBNjA3QkQxNTBDOEQA",
+    "timestamp": "1784583129",
+    "type": "image",
+    "image": {
+      "caption": "mi foto de perfil",
+      "mime_type": "image/jpeg",
+      "sha256": "lB1a8CbYkQVPddvfqbEJiIDAr6KiDSNX1avt7AuExIs=",
+      "id": "960325617068420",
+      "url": "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=960325617068420&source=webhook&ext=1784583431&hash=ATybqI8CZiK_Os5QDyPSabGrXAnIbGywa154ET_XZ7A6Cw"
+    }
+  },
+  "documento_pdf": {
+    "from": "5215550001111",
+    "from_user_id": "MX.1344220711026394",
+    "id": "wamid.HBgNNTIxNDYyMTM0OTc2OBUCABIYFjNFQjAzMDQ1NzhDOENDMjI3RjU1MTgA",
+    "timestamp": "1784583146",
+    "type": "document",
+    "document": {
+      "caption": "pdf",
+      "filename": "Pago impuesto federales julio.pdf",
+      "mime_type": "application/pdf",
+      "sha256": "D5Kvh3wr9HK1VWY51H7CpJsbvFxsHqNdDgqD9j+D9v0=",
+      "id": "27473544478974032",
+      "url": "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=27473544478974032&source=webhook&ext=1784583448&hash=ATxGO7cw4-3_f-zAVbHeIMt2gvntelmqAJJZz8KygrV_8A"
+    }
+  },
+  "sticker_animado": {
+    "from": "5215550001111",
+    "from_user_id": "MX.1344220711026394",
+    "id": "wamid.HBgNNTIxNDYyMTM0OTc2OBUCABIYIEFDOTBDNjFFODc5NkUzMjhDNDE3OTZBNDBFNDY4N0UzAA==",
+    "timestamp": "1784583181",
+    "type": "sticker",
+    "sticker": {
+      "mime_type": "image/webp",
+      "sha256": "7j8cmAk8tUzSIGTPoDoNCNyQI3zxbcxK712l/JtOvI8=",
+      "id": "856001010702021",
+      "url": "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=856001010702021&source=webhook&ext=1784583483&hash=ATwhKpbrcWT8xLqHXV3VhR3yVoMJT0mjsW-VPlEYctU48g",
+      "animated": true
+    }
+  },
+  "ubicacion_pin": {
+    "from": "5215550001111",
+    "from_user_id": "MX.1344220711026394",
+    "id": "wamid.HBgNNTIxNDYyMTM0OTc2OBUCABIYIEFDRUI2NzYyMEYxNjgyNjBBRTI1NjlCMEZBODJCMENCAA==",
+    "timestamp": "1784583198",
+    "location": { "latitude": 20.6921275, "longitude": -101.3616896 },
+    "type": "location"
+  },
+  "unsupported_131060": {
+    "from": "5215550001111",
+    "from_user_id": "MX.1344220711026394",
+    "id": "wamid.HBgNNTIxNDYyMTM0OTc2OBUCABIYIEFDQ0QzQ0QxQ0FGN0M0NDkzRjlEREFDOUQyREJCMEZDAA==",
+    "timestamp": "1784583202",
+    "errors": [
+      {
+        "code": 131060,
+        "title": "This message is unavailable.",
+        "message": "This message is unavailable.",
+        "error_data": { "details": "This message is currently unavailable." }
+      }
+    ],
+    "type": "unsupported",
+    "unsupported": { "type": "unknown" }
+  },
+  "video_mp4": {
+    "from": "5215550001111",
+    "from_user_id": "MX.1344220711026394",
+    "id": "wamid.HBgNNTIxNDYyMTM0OTc2OBUCABIYIEFDMDA5MEZBRThCQzFEOUJFNDUwQjg5MEMwNzhGNUE2AA==",
+    "timestamp": "1784583212",
+    "type": "video",
+    "video": {
+      "mime_type": "video/mp4",
+      "sha256": "Bc7IEzJgYkYr1Sy53+uLmsHl/hOUk50H69WdHH+nY3Y=",
+      "id": "1568385325325292",
+      "url": "https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=1568385325325292&source=webhook&ext=1784583515&hash=ATx6_HwdGe-H7qE_Z7yZ3P9KuZpuE-13XbCOWDXlOyk1aQ"
+    }
+  },
+  "tarjeta_contacto": {
+    "from": "5215550001111",
+    "from_user_id": "MX.1344220711026394",
+    "id": "wamid.HBgNNTIxNDYyMTM0OTc2OBUCABIYIEFDMjU1QzQxMDg3NDRDNUIxNTYwODdBMDZBNDAxQjFDAA==",
+    "timestamp": "1784583227",
+    "type": "contacts",
+    "contacts": [
+      {
+        "name": {
+          "first_name": "Aurelio Prueba",
+          "last_name": "🐏",
+          "formatted_name": "Aurelio Prueba 🐏"
+        },
+        "phones": [
+          {
+            "phone": "+52 55 5000 1111",
+            "wa_id": "5215550001111",
+            "type": "Celular"
+          }
+        ],
+        "vcard": "QkVHSU46VkNBUkQKVkVSU0lPTjozLjAKTjrwn5CPO0tldmluIEJlbGllcjs7OwpGTjpLZXZpbiBCZWxpZXIg8J+QjwppdGVtMS5URUw7d2FpZD01MjE0NjIxMzQ5NzY4Ois1MiA0NjIgMTM0IDk3NjgKaXRlbTEuWC1BQkxhYmVsOkNlbHVsYXIKRU5EOlZDQVJE",
+        "origin": "other"
+      }
+    ]
+  },
+  "reaccion": {
+    "from": "5215550001111",
+    "from_user_id": "MX.1344220711026394",
+    "id": "wamid.HBgNNTIxNDYyMTM0OTc2OBUCABIYIEFDRDkzRjI0MjUzNzdGQkI1OTc2OTRDNzBFOTgxQjUzAA==",
+    "timestamp": "1784583235",
+    "type": "reaction",
+    "reaction": {
+      "message_id": "wamid.HBgNNTIxNDYyMTM0OTc2OBUCABIYIEFDMjU1QzQxMDg3NDRDNUIxNTYwODdBMDZBNDAxQjFDAA==",
+      "emoji": "❤️"
+    }
+  }
+}

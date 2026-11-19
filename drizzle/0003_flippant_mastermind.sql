@@ -1,1 +1,0 @@
-ALTER TABLE "contact" ADD COLUMN "ficha" jsonb;
