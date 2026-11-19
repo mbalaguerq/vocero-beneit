@@ -80,3 +80,4 @@ El reinici complet del CRM (cita, embut, memòria del CRM i conversa) **NO ÉS I
 - Endpoint administratiu oficial per cancel·lar una cita del CRM sense handoff.
 - Procediment reversible oficial per reiniciar una conversa del CRM.
 - Si el projecte Supabase és només configuració/telemetria o si hi ha una altra BD del CRM.
+
