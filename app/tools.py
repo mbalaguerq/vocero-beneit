@@ -868,16 +868,18 @@ class ToolRuntime:
             chosen, error = await self._resolve_offered(args, "book_session")
             if error is not None or chosen is None:
                 return error or {"ok": False, "error": "slot_no_ofrecido"}
+        result: dict[str, Any] = {}
         try:
-            consent = args.get("recordatorios_aceptados") is True
-            if getattr(self._ctx.crm, "supports_agenda_v2", False):
-                result = await self._ctx.crm.create_booking(
-                    self._crm_conv_id, _iso_z(chosen.start_utc), reminder_consent=consent
-                )
-            else:
-                result = await self._ctx.crm.create_booking(
-                    self._crm_conv_id, _iso_z(chosen.start_utc)
-                )
+            if not args.get("manual_proposal"):
+                consent = args.get("recordatorios_aceptados") is True
+                if getattr(self._ctx.crm, "supports_agenda_v2", False):
+                    result = await self._ctx.crm.create_booking(
+                        self._crm_conv_id, _iso_z(chosen.start_utc), reminder_consent=consent
+                    )
+                else:
+                    result = await self._ctx.crm.create_booking(
+                        self._crm_conv_id, _iso_z(chosen.start_utc)
+                    )
         except SlotTaken as exc:
             # El slot se ocupó entre oferta y elección: alternativas frescas.
             fresh = _slots_from_payload(self._conv.id, exc.slots)

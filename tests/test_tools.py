@@ -80,8 +80,13 @@ async def test_book_acepta_slot_ofrecido_epoch_exacto(runtime_y_ctx, respx_mock)
 
 async def test_book_acepta_propuesta_manual_sin_slot_previamente_ofrecido(runtime_y_ctx, respx_mock):
     runtime, ctx, conv = runtime_y_ctx
-    respx_mock.post(f"{CRM_URL}/api/bot/bookings").mock(
+    ctx.settings.agenda_base_url = "https://agenda.test"
+    ctx.settings.phase6_api_token = "t" * 32
+    bookings = respx_mock.post(f"{CRM_URL}/api/bot/bookings").mock(
         return_value=httpx.Response(201, json={"bookingId": "bk-manual", "label": "demà a les 10:00"})
+    )
+    agenda = respx_mock.post("https://agenda.test/api/whatsapp/requests").mock(
+        return_value=httpx.Response(201, json={"ok": True})
     )
     respx_mock.put(f"{CRM_URL}/api/bot/ficha").mock(
         return_value=httpx.Response(200, json={})
@@ -96,6 +101,8 @@ async def test_book_acepta_propuesta_manual_sin_slot_previamente_ofrecido(runtim
     )
     assert result["ok"] is True
     assert runtime.booked is True
+    assert bookings.call_count == 0
+    assert agenda.call_count == 1
     assert await ctx.store.get_offered_slots(conv.id) == []
 
 
