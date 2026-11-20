@@ -19,6 +19,14 @@ Les operacions reutilitzen `cancelBooking` i `rescheduleForConversation`; les
 respostes desconegudes són no-op idempotent.
 
 `POST /api/bot/reminders/run` és la tanda operativa protegida per
-`BOT_API_KEY`; el cron li passa el `templateId` d'una plantilla aprovada i les
-variables. La ruta no exposa secrets ni permet enviar sense aquesta
-autenticació.
+`BOT_API_KEY`; el cron li passa el `templateId` d'una plantilla aprovada. Per
+cada cita, el worker deriva les variables en aquest ordre: nom del contacte,
+data local i hora local segons la zona de `calendar_settings`. Només envia les
+primeres variables que existeixin a la plantilla, per mantenir compatibilitat
+amb plantilles d'una o dues variables. El camp `variables` antic del cron es
+tolera per compatibilitat però s'ignora.
+
+Cada invocació reclama com a màxim 20 recordatoris deguts, amb lease atòmic i
+`SKIP LOCKED`, i retorna els comptadors agregats `processed`, `sent`,
+`cancelled` i `failed`. No inclou secrets ni permet enviar sense
+aquesta autenticació.

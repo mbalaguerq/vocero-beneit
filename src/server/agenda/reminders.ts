@@ -1,12 +1,16 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
+import { countVariables } from "@/lib/templates";
 import { scoped } from "@/lib/db/tenant";
 import { cancelBooking, rescheduleForConversation } from "@/server/agenda/service";
+import { getSettings } from "@/server/agenda/settings";
+import { timeInTz } from "@/lib/time/slots";
 import { sendTemplate } from "@/server/whatsapp/templates";
 
 export const D1_MAX_ATTEMPTS = 3;
 export const D1_LEASE_MS = 5 * 60_000;
+export const D1_BATCH_SIZE = 20;
 export const D1_REMINDER_CONTRACT = {
   type: "d1",
   interactive: false,
@@ -20,6 +24,12 @@ export const D1_REMINDER_CONTRACT = {
 
 export type ReminderAction = "confirm" | "reschedule" | "cancel" | "handoff";
 export type D1ReminderTemplateConfig = { templateId: string; variables: string[] };
+export type D1ReminderWorkerResult = {
+  processed: number;
+  sent: number;
+  cancelled: number;
+  failed: number;
+};
 
 export class ReminderError extends Error {
   constructor(public readonly code: "not_ready" | "invalid_template", message: string) {
@@ -39,6 +49,21 @@ export function reminderText(name: string, scheduledAt: Date, timezone: string):
     timeStyle: "short",
   }).format(scheduledAt);
   return `Hola${name ? ` ${name}` : ""}, te recordamos tu cita del ${label}.\n\n${D1_REMINDER_CONTRACT.fallback}`;
+}
+
+export function reminderTemplateVariables(
+  name: string,
+  scheduledAt: Date,
+  timezone: string,
+  variableCount: number
+): string[] {
+  const date = new Intl.DateTimeFormat("es-ES", {
+    timeZone: timezone,
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(scheduledAt);
+  return [name, date, timeInTz(scheduledAt.toISOString(), timezone)].slice(0, variableCount);
 }
 
 export function parseReminderAction(input: string): ReminderAction | null {
@@ -105,7 +130,7 @@ export async function runD1ReminderWorker(input: {
   organizationId: string;
   template: D1ReminderTemplateConfig;
   now?: Date;
-}): Promise<"sent" | "cancelled" | "failed" | "idle"> {
+}): Promise<D1ReminderWorkerResult> {
   const now = input.now ?? new Date();
   const templates = await getDb().select({ body: schema.template.body, status: schema.template.status })
     .from(schema.template)
@@ -115,27 +140,42 @@ export async function runD1ReminderWorker(input: {
   if (!template || template.status !== "approved" || !hasD1Fallback(template.body)) {
     throw new ReminderError("invalid_template", "La plantilla D-1 debe estar aprobada e incluir las opciones 1 CONFIRMAR, 2 CANVIAR DATA y 3 CANCEL·LAR");
   }
-  const reminder = await claimD1Reminder(input.organizationId, now);
-  if (!reminder) return "idle";
-  const rows = await getDb().select({ booking: schema.booking, contact: schema.contact, conversation: schema.conversation })
-    .from(schema.booking)
-    .innerJoin(schema.contact, eq(schema.contact.id, schema.booking.contactId))
-    .innerJoin(schema.conversation, eq(schema.conversation.id, schema.booking.conversationId))
-    .where(scoped(schema.booking.organizationId, reminder.organizationId, and(
-      eq(schema.booking.id, reminder.bookingId), eq(schema.booking.kind, "session"),
-      eq(schema.booking.status, "agendada"), eq(schema.booking.isTest, false),
-      eq(schema.conversation.isTest, false)
-    ))).limit(1);
-  const target = rows[0];
-  if (!target) { await cancelBookingReminder(reminder.organizationId, reminder.bookingId); return "cancelled"; }
-  try {
-    await sendTemplate({ organizationId: reminder.organizationId, conversationId: target.conversation.id, templateId: input.template.templateId, variables: input.template.variables });
-    await getDb().update(schema.bookingReminder).set({ status: "sent", sentAt: now, leaseUntil: null, updatedAt: now }).where(eq(schema.bookingReminder.id, reminder.id));
-    return "sent";
-  } catch (error) {
-    await getDb().update(schema.bookingReminder).set({ status: reminder.attempts >= D1_MAX_ATTEMPTS ? "failed" : "pending", leaseUntil: null, lastError: error instanceof Error ? error.message.slice(0, 500) : "unknown_error", updatedAt: now }).where(eq(schema.bookingReminder.id, reminder.id));
-    return "failed";
+  const settings = await getSettings(input.organizationId);
+  const result: D1ReminderWorkerResult = { processed: 0, sent: 0, cancelled: 0, failed: 0 };
+  for (let i = 0; i < D1_BATCH_SIZE; i++) {
+    const reminder = await claimD1Reminder(input.organizationId, now);
+    if (!reminder) break;
+    result.processed++;
+    const rows = await getDb().select({ booking: schema.booking, contact: schema.contact, conversation: schema.conversation })
+      .from(schema.booking)
+      .innerJoin(schema.contact, eq(schema.contact.id, schema.booking.contactId))
+      .innerJoin(schema.conversation, eq(schema.conversation.id, schema.booking.conversationId))
+      .where(scoped(schema.booking.organizationId, reminder.organizationId, and(
+        eq(schema.booking.id, reminder.bookingId), eq(schema.booking.kind, "session"),
+        eq(schema.booking.status, "agendada"), eq(schema.booking.isTest, false),
+        eq(schema.conversation.isTest, false)
+      ))).limit(1);
+    const target = rows[0];
+    if (!target) {
+      await cancelBookingReminder(reminder.organizationId, reminder.bookingId);
+      result.cancelled++;
+      continue;
+    }
+    try {
+      await sendTemplate({
+        organizationId: reminder.organizationId,
+        conversationId: target.conversation.id,
+        templateId: input.template.templateId,
+        variables: reminderTemplateVariables(target.contact.name, target.booking.scheduledAt, settings.timezone, countVariables(template.body)),
+      });
+      await getDb().update(schema.bookingReminder).set({ status: "sent", sentAt: now, leaseUntil: null, updatedAt: now }).where(eq(schema.bookingReminder.id, reminder.id));
+      result.sent++;
+    } catch (error) {
+      await getDb().update(schema.bookingReminder).set({ status: reminder.attempts >= D1_MAX_ATTEMPTS ? "failed" : "pending", leaseUntil: null, lastError: error instanceof Error ? error.message.slice(0, 500) : "unknown_error", updatedAt: now }).where(eq(schema.bookingReminder.id, reminder.id));
+      result.failed++;
+    }
   }
+  return result;
 }
 
 export async function applyReminderResponse(input: {

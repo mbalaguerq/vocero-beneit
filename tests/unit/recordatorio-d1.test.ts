@@ -4,7 +4,9 @@ import {
   D1_REMINDER_CONTRACT,
   parseReminderAction,
   reminderDueAt,
+  reminderTemplateVariables,
   reminderText,
+  D1_BATCH_SIZE,
 } from "@/server/agenda/reminders";
 
 describe("recordatori D-1", () => {
@@ -32,5 +34,19 @@ describe("recordatori D-1", () => {
 
   it("limita els retries", () => {
     expect(D1_MAX_ATTEMPTS).toBe(3);
+  });
+
+  it("deriva nom, data i hora locals i retalla plantilles antigues", () => {
+    const values = reminderTemplateVariables(
+      "Ana",
+      new Date("2026-11-21T10:30:00.000Z"),
+      "Europe/Madrid",
+      2
+    );
+    expect(values).toEqual(["Ana", "21/11/2026"]);
+  });
+
+  it("limita cada tanda a vint recordatoris", () => {
+    expect(D1_BATCH_SIZE).toBe(20);
   });
 });

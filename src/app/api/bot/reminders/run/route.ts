@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
   templateId: z.string().min(1).max(255),
+  // Se conserva para cron antiguos; el worker deriva los valores por cita.
   variables: z.array(z.string().max(500)).max(10).default([]),
 });
 

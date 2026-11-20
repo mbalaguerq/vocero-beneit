@@ -221,10 +221,10 @@
     "/api/bot/reminders/run": {
       "post": {
         "summary": "Ejecutar una tanda del worker D-1",
-        "description": "Endpoint seguro para cron o scheduler. Reclama como máximo un recordatorio vencido con lease atómico, filtra citas reales y usa una plantilla de WhatsApp aprobada. Reintenta como máximo tres veces; una cita cancelada se marca cancelada y no se envía.",
+        "description": "Endpoint seguro para cron o scheduler. Reclama como máximo 20 recordatorios vencidos con lease atómico, filtra citas reales y usa una plantilla de WhatsApp aprobada. Deriva por cita el nombre, la fecha local y la hora local según calendar_settings; el campo variables se acepta por compatibilidad pero se ignora. Reintenta como máximo tres veces; una cita cancelada se marca cancelada y no se envía.",
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["templateId"], "properties": { "templateId": { "type": "string", "maxLength": 255 }, "variables": { "type": "array", "items": { "type": "string", "maxLength": 500 }, "maxItems": 10 } } } } } },
         "responses": {
-          "200": { "description": "Resultado de la tanda", "content": { "application/json": { "schema": { "type": "object", "required": ["result"], "properties": { "result": { "type": "string", "enum": ["sent", "cancelled", "failed", "idle"] } } } } } },
+          "200": { "description": "Resultado agregado de la tanda", "content": { "application/json": { "schema": { "type": "object", "required": ["result"], "properties": { "result": { "type": "object", "required": ["processed", "sent", "cancelled", "failed"], "properties": { "processed": { "type": "integer", "minimum": 0 }, "sent": { "type": "integer", "minimum": 0 }, "cancelled": { "type": "integer", "minimum": 0 }, "failed": { "type": "integer", "minimum": 0 } } } } } } } },
           "401": { "description": "Falta una BOT_API_KEY válida" },
           "409": { "$ref": "#/components/responses/SinOrganizacion" },
           "422": { "$ref": "#/components/responses/Invalido" },
