@@ -267,6 +267,39 @@ class CrmClient:
         data: dict[str, Any] = resp.json()
         return data
 
+    async def create_agenda_request(
+        self,
+        conversation_id: str,
+        *,
+        client_name: str,
+        phone: str,
+        address: str,
+        work_type: str,
+        description: str,
+    ) -> dict[str, Any]:
+        """Crea la petició idempotent a l'Agenda PHP per a aquest fil."""
+        resp = await self._request(
+            "POST",
+            "/api/bot/agenda-request",
+            json={
+                "sourceEventId": f"conversation:{conversation_id}",
+                "conversationId": conversation_id,
+                "clientName": client_name,
+                "phone": phone,
+                "address": address,
+                "workType": work_type,
+                "description": description,
+            },
+        )
+        if resp.status_code in (409, 422, 503):
+            raise CrmConflict(_conflict_code(resp), _payload(resp))
+        if resp.status_code != 200:
+            raise CrmError(f"agenda-request devolvió {resp.status_code}")
+        data: dict[str, Any] = resp.json()
+        if not isinstance(data.get("requestId"), str):
+            raise CrmError("agenda-request no devolvió requestId")
+        return data
+
     async def move_stage(self, conversation_id: str, stage: str) -> dict[str, Any]:
         """038 — Mueve al lead a una etapa siguiente (`POST /api/bot/stage`).
 

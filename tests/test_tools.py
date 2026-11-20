@@ -247,6 +247,46 @@ async def test_update_ficha_manda_lo_que_haya(runtime_y_ctx, respx_mock):
     assert body["ficha"]["campo_raro"] == "x"
 
 
+async def test_create_agenda_request_manda_los_cinco_datos(runtime_y_ctx, respx_mock):
+    runtime, _, _ = runtime_y_ctx
+    route = respx_mock.post(f"{CRM_URL}/api/bot/agenda-request").mock(
+        return_value=httpx.Response(200, json={"requestId": "req_1"})
+    )
+    result = await runtime.execute(
+        "create_agenda_request",
+        {
+            "client_name": "Ana Pérez",
+            "phone": "+34600111222",
+            "address": "Carrer Major 1",
+            "work_type": "Reparació",
+            "description": "La caldera perd aigua.",
+        },
+    )
+    assert result["ok"] is True
+    assert result["request_id"] == "req_1"
+    body = json.loads(route.calls[0].request.content)
+    assert body["clientName"] == "Ana Pérez"
+    assert body["phone"] == "+34600111222"
+    assert body["address"] == "Carrer Major 1"
+    assert body["workType"] == "Reparació"
+    assert body["description"] == "La caldera perd aigua."
+    assert runtime.agenda_request_succeeded is True
+
+
+async def test_create_agenda_request_fallida_no_se_da_por_registrada(runtime_y_ctx, respx_mock):
+    runtime, _, _ = runtime_y_ctx
+    respx_mock.post(f"{CRM_URL}/api/bot/agenda-request").mock(
+        return_value=httpx.Response(500)
+    )
+    result = await runtime.execute(
+        "create_agenda_request",
+        {"client_name": "Ana", "phone": "600", "address": "Carrer 1", "work_type": "A", "description": "B"},
+    )
+    assert result["ok"] is False
+    assert result["error"] == "crm_error"
+    assert runtime.agenda_request_failed is True
+
+
 async def test_handoff_se_difiere_al_final_del_turno(runtime_y_ctx, respx_mock):
     runtime, ctx, conv = runtime_y_ctx
     handoff_route = respx_mock.post(f"{CRM_URL}/api/bot/handoff").mock(

@@ -79,6 +79,30 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "create_agenda_request",
+            "description": (
+                "Registra una petición completa en la Agenda Beneit como feina "
+                "pendent sense data ni instal·lador. Llámala una sola vez quan "
+                "ja tinguis nom, telèfon, adreça, tipus de feina i descripció. "
+                "És idempotent per conversa. No la facis servir per confirmar "
+                "una hora ni per inventar una cita."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "client_name": {"type": "string"},
+                    "phone": {"type": "string"},
+                    "address": {"type": "string"},
+                    "work_type": {"type": "string"},
+                    "description": {"type": "string"},
+                },
+                "required": ["client_name", "phone", "address", "work_type", "description"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "propose_slots",
             "description": (
                 "Consulta la disponibilidad real de la agenda del negocio. Sin "
@@ -280,6 +304,7 @@ AGENDA_TOOLS = frozenset({"propose_slots", "book_session", "reschedule_session"}
 # aquí no se puede apagar desde el CRM.
 CLAVE_DE_HERRAMIENTA = {
     "update_ficha": "ficha",
+    "create_agenda_request": "agendar",
     "move_stage": "etapa",
     "propose_slots": "agendar",
     "book_session": "agendar",
@@ -490,6 +515,8 @@ class ToolRuntime:
         self._crm_context = crm_context or {}
         # Efectos observables por turn.py:
         self.handoff_reason: str | None = None  # se ejecuta DESPUÉS de la despedida
+        self.agenda_request_succeeded = False
+        self.agenda_request_failed = False
         self.booked = False
         self.booking_confirmation: dict[str, Any] | None = None
         self.routed_out = False
@@ -510,6 +537,8 @@ class ToolRuntime:
                 return await self._ctx.crm.cancel_booking(self._crm_conv_id, str(args["selection_token"]), True)
             if name == "update_ficha":
                 return await self._update_ficha(args)
+            if name == "create_agenda_request":
+                return await self._create_agenda_request(args)
             if name == "move_stage":
                 return await self._move_stage(args)
             if name == "propose_slots":
@@ -539,6 +568,38 @@ class ToolRuntime:
             return {"ok": True, "nota": "sin campos nuevos"}
         await self._ctx.crm.put_ficha(self._crm_conv_id, ficha)
         return {"ok": True}
+
+    async def _create_agenda_request(self, args: dict[str, Any]) -> dict[str, Any]:
+        fields = {
+            "client_name": str(args.get("client_name") or "").strip(),
+            "phone": str(args.get("phone") or "").strip(),
+            "address": str(args.get("address") or "").strip(),
+            "work_type": str(args.get("work_type") or "").strip(),
+            "description": str(args.get("description") or "").strip(),
+        }
+        if any(not value for value in fields.values()):
+            self.agenda_request_failed = True
+            return {"ok": False, "error": "faltan_datos_explicitos"}
+        try:
+            result = await self._ctx.crm.create_agenda_request(
+                self._crm_conv_id,
+                **fields,
+            )
+        except CrmConflict as exc:
+            self.agenda_request_failed = True
+            error = exc.payload.get("error")
+            detail = error.get("message") if isinstance(error, dict) else None
+            return {"ok": False, "error": exc.code, "detalle": detail or "no se pudo registrar la petición"}
+        except CrmError:
+            self.agenda_request_failed = True
+            return {"ok": False, "error": "crm_error", "detalle": "no se pudo registrar la petición"}
+        self.agenda_request_succeeded = True
+        return {
+            "ok": True,
+            "request_id": result.get("requestId"),
+            "duplicate": result.get("duplicate") is True,
+            "instruccions": "La petición ya está en la Agenda como feina pendent; no afirmes una hora ni una visita confirmada.",
+        }
 
     async def _move_stage(self, args: dict[str, Any]) -> dict[str, Any]:
         etapa = str(args.get("etapa") or "").strip()

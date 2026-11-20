@@ -4,8 +4,10 @@ from __future__ import annotations
 import asyncio
 import json
 
+import httpx
+
 from app.llm import LlmExhausted, LlmReply, ToolCall
-from tests.conftest import FakeLLM, mock_crm_basics, despachar
+from tests.conftest import CRM_URL, FakeLLM, mock_crm_basics, despachar
 
 
 async def test_handoff_despedida_primero_pausa_despues(ctx, client, respx_mock):
@@ -31,6 +33,73 @@ async def test_handoff_despedida_primero_pausa_despues(ctx, client, respx_mock):
     # El texto libre del LLM se normaliza al catálogo del CRM (002): un
     # reason fuera de catálogo era 422 y el handoff se perdía en producción.
     assert body["reason"] == "cliente"
+
+
+async def test_peticion_agenda_correcta_y_trasllat_pausa_ia(ctx, client, respx_mock):
+    routes = mock_crm_basics(respx_mock)
+    agenda = respx_mock.post(f"{CRM_URL}/api/bot/agenda-request").mock(
+        return_value=httpx.Response(200, json={"requestId": "req_1"})
+    )
+    ctx.llm.replies = [
+        LlmReply(
+            content=None,
+            tool_calls=[
+                ToolCall(
+                    id="tc_agenda",
+                    name="create_agenda_request",
+                    arguments={
+                        "client_name": "Ana Pérez",
+                        "phone": "+34600111222",
+                        "address": "Carrer Major 1",
+                        "work_type": "Reparació",
+                        "description": "La caldera perd aigua.",
+                    },
+                )
+            ],
+        ),
+        LlmReply(content="La petició està registrada; ho trasllado a l'equip."),
+    ]
+    await despachar(client, ctx, text="Vull reparar la caldera", esperar=True)
+
+    assert agenda.call_count == 1
+    assert routes["messages"].call_count == 1
+    assert routes["handoff"].call_count == 1
+    assert json.loads(routes["handoff"].calls[0].request.content)["reason"] == "modelo"
+    paths = [str(c.request.url.path) for c in respx_mock.calls if "/api/bot/" in str(c.request.url)]
+    assert paths.index("/api/bot/messages") < paths.index("/api/bot/handoff")
+
+
+async def test_peticio_agenda_fallida_no_afirma_registre(ctx, client, respx_mock):
+    routes = mock_crm_basics(respx_mock)
+    respx_mock.post(f"{CRM_URL}/api/bot/agenda-request").mock(
+        return_value=httpx.Response(500)
+    )
+    ctx.llm.replies = [
+        LlmReply(
+            content=None,
+            tool_calls=[
+                ToolCall(
+                    id="tc_agenda_fail",
+                    name="create_agenda_request",
+                    arguments={
+                        "client_name": "Ana Pérez",
+                        "phone": "+34600111222",
+                        "address": "Carrer Major 1",
+                        "work_type": "Reparació",
+                        "description": "La caldera perd aigua.",
+                    },
+                )
+            ],
+        ),
+        LlmReply(content="La petición ya está registrada y el equipo te llamará."),
+    ]
+    await despachar(client, ctx, text="Vull reparar la caldera", esperar=True)
+
+    text = json.loads(routes["messages"].calls[0].request.content)["text"]
+    assert "registrar la petición" in text
+    assert "registrada" not in text
+    assert routes["handoff"].call_count == 1
+    assert json.loads(routes["handoff"].calls[0].request.content)["reason"] == "error"
 
 
 async def test_llm_agotado_silencio_mas_handoff_error(ctx, client, respx_mock):

@@ -491,6 +491,16 @@ async def run_turn(
     if streak >= 3 and runtime.handoff_reason is None:
         runtime.handoff_reason = "hostilidad"
 
+    if runtime.agenda_request_failed:
+        final_text = "No he podido registrar la petición todavía; el equipo deberá revisarla."
+        runtime.handoff_reason = runtime.handoff_reason or "error"
+    elif (
+        runtime.agenda_request_succeeded
+        and runtime.handoff_reason is None
+        and _indica_trasllat_a_l_equip(final_text)
+    ):
+        runtime.handoff_reason = "modelo"
+
     # --- Enviar la respuesta (SIEMPRE vía el CRM, nunca Meta directo) -----
     # WhatsApp no pinta Markdown: se convierte aquí, y lo que se guarda en el
     # historial es lo ya convertido para que el modelo no aprenda de vuelta
@@ -709,6 +719,27 @@ def _respuesta_invalida(texto: str | None, previos: list[str]) -> str | None:
     ):
         return "repetía palabra por palabra un mensaje que ya le enviaste"
     return None
+
+
+def _indica_trasllat_a_l_equip(texto: str | None) -> bool:
+    if not texto:
+        return False
+    normalizado = " ".join(texto.lower().split())
+    return any(
+        frase in normalizado
+        for frase in (
+            "te paso con el equipo",
+            "lo traslado al equipo",
+            "lo trasllado a l'equip",
+            "lo trasllado a l’equip",
+            "ho trasllado a l'equip",
+            "ho trasllado a l’equip",
+            "lo revisará el equipo",
+            "lo revisara el equipo",
+            "el equipo se pondrá en contacto",
+            "el equipo se pondra en contacto",
+        )
+    )
 
 
 async def _tool_loop(
