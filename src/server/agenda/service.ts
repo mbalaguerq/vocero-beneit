@@ -24,6 +24,7 @@ import {
 import { ConnectorError } from "@/server/agenda/connectors/types";
 import { moveLeadToStage } from "@/server/leads/stage-history";
 import { publish } from "@/server/events/bus";
+import { cancelBookingReminder, scheduleReminder } from "@/server/agenda/reminders";
 
 /**
  * 015 — Ciclo de vida de la cita y las dos reglas INNEGOCIABLES:
@@ -228,6 +229,13 @@ export async function createSessionBooking(input: {
 
   // Efectos secundarios: ninguno puede revertir la cita.
   const delivered = await deliverMeeting(booking, settings, contactName);
+  if (input.conversationId && !isTest) {
+    await scheduleReminder({
+      organizationId: input.organizationId,
+      bookingId: delivered.id,
+      scheduledAt: delivered.scheduledAt,
+    });
+  }
   await advanceLeadStage(
     input.organizationId,
     contactId,
@@ -334,6 +342,13 @@ export async function rescheduleBooking(input: {
       timezone: settings.timezone,
     });
   });
+  if (next.conversationId && !next.isTest) {
+    await scheduleReminder({
+      organizationId: input.organizationId,
+      bookingId: next.id,
+      scheduledAt: next.scheduledAt,
+    });
+  }
 
   publish(input.organizationId, {
     type: "booking.updated",
@@ -431,6 +446,7 @@ export async function cancelBooking(input: {
     .update(schema.booking)
     .set({ status: "cancelada", updatedAt: new Date() })
     .where(eq(schema.booking.id, booking.id));
+  await cancelBookingReminder(input.organizationId, booking.id);
 
   const settings = await getSettings(input.organizationId);
   await withConnector(booking, settings, async (conn, externalRef) => {

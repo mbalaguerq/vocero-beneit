@@ -25,6 +25,7 @@ import { registrarAnuncioDeOrigen } from "@/server/attribution/store";
 import { onLeadActivity } from "@/server/inbox/lead-activity";
 import { despachoActivo } from "@/server/brains/config";
 import { despacharAlCerebro } from "@/server/dispatch/encolar";
+import { applyReminderResponse } from "@/server/agenda/reminders";
 
 /** Tipos de contenido soportados; el resto se ignora sin error. */
 const SUPPORTED_TYPES = new Set([
@@ -528,6 +529,16 @@ export async function ingestInboundMessage(input: {
     type: "conversation.updated",
     data: { conversation: { id: conversation.id } },
   });
+
+  if (input.text) {
+    await applyReminderResponse({
+      organizationId,
+      conversationId: conversation.id,
+      response: input.text,
+    }).catch((err) => {
+      console.warn(`[agenda] no se pudo procesar la respuesta al recordatorio: ${err}`);
+    });
+  }
 
   // 036 — Quien contesta es el cerebro conectado; sin él, una persona. El
   // 025: `message.id` es lo que el despacho le debe al cerebro.

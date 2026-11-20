@@ -881,6 +881,40 @@ export const booking = pgTable(
   ]
 );
 
+/** Recordatori D-1 d'una cita real, amb lease per al worker. */
+export const bookingReminder = pgTable(
+  "booking_reminder",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organization.id, { onDelete: "cascade" }),
+    bookingId: text("booking_id")
+      .notNull()
+      .references(() => booking.id, { onDelete: "cascade" }),
+    type: text("type", { enum: ["d1"] }).notNull().default("d1"),
+    status: text("status", {
+      enum: ["pending", "sending", "sent", "cancelled", "failed"],
+    }).notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    leaseUntil: timestamp("lease_until"),
+    dueAt: timestamp("due_at").notNull(),
+    sentAt: timestamp("sent_at"),
+    cancelledAt: timestamp("cancelled_at"),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("booking_reminder_org_booking_type_uq").on(
+      t.organizationId,
+      t.bookingId,
+      t.type
+    ),
+    index("booking_reminder_due_idx").on(t.status, t.dueAt, t.leaseUntil),
+  ]
+);
+
 /**
  * La memoria de lo ofrecido. Es lo que hace verificable el requisito
  * innegociable: sin fila aquí, no hay reserva.

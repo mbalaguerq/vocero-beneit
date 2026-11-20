@@ -35,6 +35,7 @@ const prefixes = {
   dispatch: "dsp",
   // 026 — el aviso de que una conversación se eliminó
   olvido: "olv",
+  reminder: "rem",
 } as const;
 
 export type IdKind = keyof typeof prefixes;

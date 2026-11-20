@@ -204,6 +204,34 @@
         }
       }
     },
+    "/api/bot/reminders/respond": {
+      "post": {
+        "summary": "Aplicar la respuesta al recordatorio D-1",
+        "description": "Interpreta 1/CONFIRMAR, 2/CANVIAR DATA y 3/CANCEL·LAR para la última cita del hilo. `conversationId` basta; `reminderId` es opcional para reintentos explícitos. La operación es idempotente y reutiliza las operaciones de agenda. `humano`, `persona` y `agente` pasan el hilo a una persona.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["response"], "anyOf": [{ "required": ["conversationId"] }, { "required": ["reminderId"] }], "properties": { "conversationId": { "type": "string" }, "reminderId": { "type": "string" }, "response": { "type": "string", "minLength": 1, "maxLength": 200 }, "newStartUtc": { "type": "string", "format": "date-time" } } } } } },
+        "responses": {
+          "200": { "description": "Acción aplicada o no-op idempotente", "content": { "application/json": { "schema": { "type": "object", "required": ["action", "idempotent"], "properties": { "action": { "type": "string", "enum": ["confirm", "reschedule", "cancel", "handoff", "unknown"] }, "idempotent": { "type": "boolean" } } } } } },
+          "401": { "description": "Falta una BOT_API_KEY válida" },
+          "404": { "$ref": "#/components/responses/NoEncontrada" },
+          "409": { "$ref": "#/components/responses/SinOrganizacion" },
+          "422": { "$ref": "#/components/responses/Invalido" }
+        }
+      }
+    },
+    "/api/bot/reminders/run": {
+      "post": {
+        "summary": "Ejecutar una tanda del worker D-1",
+        "description": "Endpoint seguro para cron o scheduler. Reclama como máximo un recordatorio vencido con lease atómico, filtra citas reales y usa una plantilla de WhatsApp aprobada. Reintenta como máximo tres veces; una cita cancelada se marca cancelada y no se envía.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["templateId"], "properties": { "templateId": { "type": "string", "maxLength": 255 }, "variables": { "type": "array", "items": { "type": "string", "maxLength": 500 }, "maxItems": 10 } } } } } },
+        "responses": {
+          "200": { "description": "Resultado de la tanda", "content": { "application/json": { "schema": { "type": "object", "required": ["result"], "properties": { "result": { "type": "string", "enum": ["sent", "cancelled", "failed", "idle"] } } } } } },
+          "401": { "description": "Falta una BOT_API_KEY válida" },
+          "409": { "$ref": "#/components/responses/SinOrganizacion" },
+          "422": { "$ref": "#/components/responses/Invalido" },
+          "502": { "description": "La plantilla o el canal rechazó el envío" }
+        }
+      }
+    },
     "/api/bot/openapi.json": {
       "get": {
         "summary": "Este documento",

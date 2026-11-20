@@ -85,6 +85,7 @@ vi.mock("@/lib/db", () => ({
     select: () => chain(selectRows.shift() ?? []),
     insert: () => ({
       values: (v: Record<string, unknown>) => ({
+        onConflictDoUpdate: () => Promise.resolve(),
         returning: () => {
           lastInsert = v;
           return Promise.resolve([
@@ -103,6 +104,15 @@ vi.mock("@/lib/db", () => ({
   }),
   schema: {
     booking: {},
+    bookingReminder: {
+      organizationId: "organizationId",
+      bookingId: "bookingId",
+      type: "type",
+      status: "status",
+      dueAt: "dueAt",
+      leaseUntil: "leaseUntil",
+      createdAt: "createdAt",
+    },
     conversation: { organizationId: "organizationId", id: "id" },
     contact: { organizationId: "organizationId", id: "id", name: "name" },
     lead: { organizationId: "organizationId", contactId: "contactId" },
