@@ -210,7 +210,7 @@
         "description": "Interpreta 1/CONFIRMAR, 2/CANVIAR DATA y 3/CANCEL·LAR para la última cita del hilo. `conversationId` basta; `reminderId` es opcional para reintentos explícitos. La operación es idempotente y reutiliza las operaciones de agenda. `humano`, `persona` y `agente` pasan el hilo a una persona.",
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["response"], "anyOf": [{ "required": ["conversationId"] }, { "required": ["reminderId"] }], "properties": { "conversationId": { "type": "string" }, "reminderId": { "type": "string" }, "response": { "type": "string", "minLength": 1, "maxLength": 200 }, "newStartUtc": { "type": "string", "format": "date-time" } } } } } },
         "responses": {
-          "200": { "description": "Acción aplicada o no-op idempotente", "content": { "application/json": { "schema": { "type": "object", "required": ["action", "idempotent"], "properties": { "action": { "type": "string", "enum": ["confirm", "reschedule", "cancel", "handoff", "unknown"] }, "idempotent": { "type": "boolean" } } } } } },
+          "200": { "description": "Acción aplicada o no-op idempotente; la respuesta 2 sin fecha devuelve `pending: true`", "content": { "application/json": { "schema": { "type": "object", "required": ["action", "idempotent"], "properties": { "action": { "type": "string", "enum": ["confirm", "reschedule", "cancel", "handoff", "unknown"] }, "idempotent": { "type": "boolean" }, "pending": { "type": "boolean" } } } } } },
           "401": { "description": "Falta una BOT_API_KEY válida" },
           "404": { "$ref": "#/components/responses/NoEncontrada" },
           "409": { "$ref": "#/components/responses/SinOrganizacion" },

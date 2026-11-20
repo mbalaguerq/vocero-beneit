@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError, parseBody } from "@/lib/api";
 import { requireBotKey, resolveInstanceOrg } from "@/server/bot/auth";
-import { applyReminderResponse } from "@/server/agenda/reminders";
+import { applyReminderResponse, ReminderError } from "@/server/agenda/reminders";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +23,9 @@ export async function POST(req: Request) {
   try {
     return Response.json(await applyReminderResponse({ organizationId, ...body.data }));
   } catch (error) {
+    if (error instanceof ReminderError && error.code === "not_ready") {
+      return apiError(409, error.code, error.message);
+    }
     if (error instanceof Error && error.message === "recordatorio no encontrado") {
       return apiError(404, "not_found", error.message);
     }

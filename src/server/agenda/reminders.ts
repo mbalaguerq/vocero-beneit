@@ -1,4 +1,4 @@
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { scoped } from "@/lib/db/tenant";
@@ -21,6 +21,13 @@ export const D1_REMINDER_CONTRACT = {
 export type ReminderAction = "confirm" | "reschedule" | "cancel" | "handoff";
 export type D1ReminderTemplateConfig = { templateId: string; variables: string[] };
 
+export class ReminderError extends Error {
+  constructor(public readonly code: "not_ready" | "invalid_template", message: string) {
+    super(message);
+    this.name = "ReminderError";
+  }
+}
+
 export function reminderDueAt(scheduledAt: Date): Date {
   return new Date(scheduledAt.getTime() - 24 * 60 * 60_000);
 }
@@ -35,12 +42,19 @@ export function reminderText(name: string, scheduledAt: Date, timezone: string):
 }
 
 export function parseReminderAction(input: string): ReminderAction | null {
-  const value = input.trim().toLocaleLowerCase("es-ES");
+  const value = input.trim().toLocaleLowerCase("es-ES").normalize("NFD").replace(/\p{Diacritic}/gu, "");
   if (["1", "confirmar", "confirmo", "sí", "si"].includes(value)) return "confirm";
   if (["2", "cambiar", "cambiar fecha", "canviar data"].includes(value)) return "reschedule";
-  if (["3", "cancelar", "cancel·lar", "cancel·lar cita"].includes(value)) return "cancel";
-  if (["humano", "persona", "agente"].includes(value)) return "handoff";
+  if (["3", "cancelar"].includes(value) || /^cancel\W?lar(?: cita)?$/u.test(value)) return "cancel";
+  if (/\b(humano|humana|human|persona|persones|agent|agente)\b/.test(value)) return "handoff";
   return null;
+}
+
+export function hasD1Fallback(body: string): boolean {
+  const normalized = body.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleUpperCase("es-ES");
+  return D1_REMINDER_CONTRACT.options.every(({ number, label }) =>
+    normalized.includes(number) && normalized.includes(label.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleUpperCase("es-ES"))
+  );
 }
 
 export async function scheduleReminder(input: {
@@ -63,18 +77,19 @@ export async function cancelBookingReminder(organizationId: string, bookingId: s
   await getDb().update(schema.bookingReminder).set({ status: "cancelled", cancelledAt: now, updatedAt: now })
     .where(scoped(schema.bookingReminder.organizationId, organizationId, and(
       eq(schema.bookingReminder.bookingId, bookingId),
-      or(eq(schema.bookingReminder.status, "pending"), eq(schema.bookingReminder.status, "sending"))
+      inArray(schema.bookingReminder.status, ["pending", "sending", "sent", "failed"])
     )));
 }
 
 /** Claim atòmic amb FOR UPDATE SKIP LOCKED: dos workers no poden enviar la mateixa fila. */
-export async function claimD1Reminder(now = new Date()): Promise<typeof schema.bookingReminder.$inferSelect | null> {
+export async function claimD1Reminder(organizationId: string, now = new Date()): Promise<typeof schema.bookingReminder.$inferSelect | null> {
   const leaseUntil = new Date(now.getTime() + D1_LEASE_MS);
   const result = await getDb().execute(sql`
     WITH candidate AS (
       SELECT id FROM booking_reminder
-      WHERE type = 'd1' AND status IN ('pending', 'failed') AND due_at <= ${now}
-        AND attempts < ${D1_MAX_ATTEMPTS} AND (lease_until IS NULL OR lease_until < ${now})
+      WHERE organization_id = ${organizationId} AND type = 'd1'
+        AND (status IN ('pending', 'failed') OR (status = 'sending' AND lease_until < ${now}))
+        AND due_at <= ${now} AND attempts < ${D1_MAX_ATTEMPTS}
       ORDER BY due_at FOR UPDATE SKIP LOCKED LIMIT 1
     )
     UPDATE booking_reminder AS reminder
@@ -87,11 +102,20 @@ export async function claimD1Reminder(now = new Date()): Promise<typeof schema.b
 }
 
 export async function runD1ReminderWorker(input: {
+  organizationId: string;
   template: D1ReminderTemplateConfig;
   now?: Date;
 }): Promise<"sent" | "cancelled" | "failed" | "idle"> {
   const now = input.now ?? new Date();
-  const reminder = await claimD1Reminder(now);
+  const templates = await getDb().select({ body: schema.template.body, status: schema.template.status })
+    .from(schema.template)
+    .where(scoped(schema.template.organizationId, input.organizationId, eq(schema.template.id, input.template.templateId)))
+    .limit(1);
+  const template = templates[0];
+  if (!template || template.status !== "approved" || !hasD1Fallback(template.body)) {
+    throw new ReminderError("invalid_template", "La plantilla D-1 debe estar aprobada e incluir las opciones 1 CONFIRMAR, 2 CANVIAR DATA y 3 CANCEL·LAR");
+  }
+  const reminder = await claimD1Reminder(input.organizationId, now);
   if (!reminder) return "idle";
   const rows = await getDb().select({ booking: schema.booking, contact: schema.contact, conversation: schema.conversation })
     .from(schema.booking)
@@ -120,7 +144,7 @@ export async function applyReminderResponse(input: {
   conversationId?: string;
   response: string;
   newStartUtc?: string;
-}): Promise<{ action: ReminderAction | "unknown"; idempotent: boolean }> {
+}): Promise<{ action: ReminderAction | "unknown"; idempotent: boolean; pending?: boolean }> {
   const action = parseReminderAction(input.response);
   if (!action) return { action: "unknown", idempotent: true };
   const rows = await getDb().select({ reminder: schema.bookingReminder, booking: schema.booking })
@@ -130,15 +154,20 @@ export async function applyReminderResponse(input: {
       input.reminderId
         ? eq(schema.bookingReminder.id, input.reminderId)
         : eq(schema.conversation.id, input.conversationId ?? ""),
-      or(eq(schema.bookingReminder.status, "sent"), eq(schema.bookingReminder.status, "pending"), eq(schema.bookingReminder.status, "sending"))
     ))).orderBy(sql`${schema.bookingReminder.createdAt} desc`).limit(1);
   const row = rows[0];
   if (!row) throw new Error("recordatorio no encontrado");
-  if (action === "confirm") return { action, idempotent: row.reminder.status === "sent" };
+  if (!["sent", "cancelled"].includes(row.reminder.status)) {
+    throw new ReminderError("not_ready", "El recordatorio todavía no se ha enviado");
+  }
+  if (action === "confirm") return { action, idempotent: true };
   if (action === "cancel") {
     await cancelBooking({ organizationId: input.organizationId, bookingId: row.booking.id });
     await cancelBookingReminder(input.organizationId, row.booking.id);
     return { action, idempotent: row.booking.status === "cancelada" };
+  }
+  if (action === "reschedule" && !input.newStartUtc) {
+    return { action, idempotent: false, pending: true };
   }
   if (action === "reschedule" && input.newStartUtc && row.booking.conversationId) {
     await rescheduleForConversation({ organizationId: input.organizationId, conversationId: row.booking.conversationId, startUtc: input.newStartUtc });
@@ -153,5 +182,5 @@ export async function applyReminderResponse(input: {
       sql`${schema.conversation.handoffAt} is null`
     ));
   }
-  return { action, idempotent: true };
+  return { action, idempotent: action !== "reschedule", pending: false };
 }

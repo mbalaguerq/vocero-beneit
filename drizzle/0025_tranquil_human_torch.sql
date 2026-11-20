@@ -18,3 +18,5 @@ ALTER TABLE "booking_reminder" ADD CONSTRAINT "booking_reminder_organization_id_
 ALTER TABLE "booking_reminder" ADD CONSTRAINT "booking_reminder_booking_id_booking_id_fk" FOREIGN KEY ("booking_id") REFERENCES "public"."booking"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "booking_reminder_org_booking_type_uq" ON "booking_reminder" USING btree ("organization_id","booking_id","type");--> statement-breakpoint
 CREATE INDEX "booking_reminder_due_idx" ON "booking_reminder" USING btree ("status","due_at","lease_until");
+--> statement-breakpoint
+ALTER TABLE "booking_reminder" ENABLE ROW LEVEL SECURITY;

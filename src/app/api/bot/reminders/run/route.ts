@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { apiError, parseBody } from "@/lib/api";
 import { requireBotKey, resolveInstanceOrg } from "@/server/bot/auth";
-import { runD1ReminderWorker } from "@/server/agenda/reminders";
+import { ReminderError, runD1ReminderWorker } from "@/server/agenda/reminders";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +18,17 @@ export async function POST(req: Request) {
   if (!organizationId) return apiError(409, "no_org", "La instancia aún no tiene organización");
   const body = await parseBody(req, bodySchema);
   if (!body.ok) return body.response;
-  return Response.json({
-    organizationId,
-    result: await runD1ReminderWorker({
-      template: { templateId: body.data.templateId, variables: body.data.variables ?? [] },
-    }),
-  });
+  try {
+    return Response.json({
+      result: await runD1ReminderWorker({
+        organizationId,
+        template: { templateId: body.data.templateId, variables: body.data.variables ?? [] },
+      }),
+    });
+  } catch (error) {
+    if (error instanceof ReminderError && error.code === "invalid_template") {
+      return apiError(422, error.code, error.message);
+    }
+    throw error;
+  }
 }
