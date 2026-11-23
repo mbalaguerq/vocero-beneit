@@ -93,7 +93,10 @@ export async function scheduleReminder(input: {
     bookingId: input.bookingId, type: "d1", dueAt,
   }).onConflictDoUpdate({
     target: [schema.bookingReminder.organizationId, schema.bookingReminder.bookingId, schema.bookingReminder.type],
-    set: { dueAt, status: "pending", leaseUntil: null, lastError: null, updatedAt: new Date() },
+    set: {
+      dueAt, status: "pending", attempts: 0, leaseUntil: null,
+      sentAt: null, cancelledAt: null, lastError: null, updatedAt: new Date(),
+    },
   });
 }
 
@@ -153,7 +156,7 @@ export async function runD1ReminderWorker(input: {
       .where(scoped(schema.booking.organizationId, reminder.organizationId, and(
         eq(schema.booking.id, reminder.bookingId), eq(schema.booking.kind, "session"),
         eq(schema.booking.status, "agendada"), eq(schema.booking.isTest, false),
-        eq(schema.conversation.isTest, false)
+        eq(schema.conversation.isTest, false), eq(schema.conversation.channel, "whatsapp")
       ))).limit(1);
     const target = rows[0];
     if (!target) {

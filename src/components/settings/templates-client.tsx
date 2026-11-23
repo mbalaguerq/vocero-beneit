@@ -78,7 +78,7 @@ const STARTERS: {
     title: "Recordatorio de cita",
     name: "recordatorio_cita",
     category: "UTILITY",
-    body: "Hola {{1}}, te recordamos tu cita del {{2}} a las {{3}}. Si necesitas cambiarla, responde a este mensaje.",
+    body: "Hola {{1}}, te recordamos tu cita del {{2}} a las {{3}}. Responde 1 per CONFIRMAR, 2 per CANVIAR DATA o 3 per CANCEL·LAR.",
     examples: ["Ana", "martes 14 de octubre", "10:30"],
   },
   {

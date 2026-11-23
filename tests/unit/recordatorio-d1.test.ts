@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   D1_MAX_ATTEMPTS,
   D1_REMINDER_CONTRACT,
+  hasD1Fallback,
   parseReminderAction,
   reminderDueAt,
   reminderTemplateVariables,
@@ -19,6 +20,12 @@ describe("recordatori D-1", () => {
     expect(D1_REMINDER_CONTRACT.interactive).toBe(false);
     expect(reminderText("Ana", new Date("2026-11-21T10:30:00.000Z"), "UTC"))
       .toContain("1 per CONFIRMAR, 2 per CANVIAR DATA o 3 per CANCEL·LAR");
+  });
+
+  it("acepta el texto numerado del modelo inicial de recordatorio_cita", () => {
+    expect(hasD1Fallback(
+      "Hola {{1}}, te recordamos tu cita del {{2}} a las {{3}}. Responde 1 per CONFIRMAR, 2 per CANVIAR DATA o 3 per CANCEL·LAR."
+    )).toBe(true);
   });
 
   it.each([
