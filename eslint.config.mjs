@@ -10,6 +10,7 @@ const config = [
       ".next-*/**",
       ".deploy-*/**",
       ".package-*/**",
+      ".tmp-*/**",
       "tmp/**",
       "._*.mjs",
       "dist/**",
