@@ -50,9 +50,28 @@ export function bookingErrorStatus(code: BookingError["code"]): number {
   }
 }
 
-/** Traduce un `BookingError` al sobre estándar. Cualquier otro error se relanza. */
-export function bookingErrorResponse(err: unknown): Response {
-  if (!(err instanceof BookingError)) throw err;
+/** Traduce errores de agenda al sobre HTTP sin exponer detalles internos. */
+export function bookingErrorResponse(
+  err: unknown,
+  context = "booking"
+): Response {
+  if (!(err instanceof BookingError)) {
+    const error = err instanceof Error ? err : new Error("Unknown error");
+    console.error("[booking-error]", {
+      context,
+      error: {
+        name: error.name,
+        message: error.message,
+        code: typeof (err as { code?: unknown })?.code === "string"
+          ? (err as { code: string }).code
+          : undefined,
+      },
+    });
+    return Response.json(
+      { error: { code: "internal_error" } },
+      { status: 500 }
+    );
+  }
   const code = err.code === "invalid" ? "invalid_body" : err.code;
   return Response.json(
     { error: { code, message: err.message }, slots: err.slots },

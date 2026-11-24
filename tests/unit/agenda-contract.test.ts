@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   bookingErrorResponse,
   bookingErrorStatus,
@@ -84,10 +84,21 @@ describe("forma del error", () => {
     expect(body.error.code).toBe("invalid_body");
   });
 
-  it("un error que no es del dominio se relanza en vez de disfrazarse de 409", () => {
-    expect(() => bookingErrorResponse(new Error("se cayó la base"))).toThrow(
-      "se cayó la base"
-    );
+  it("un error interno responde 500 sin stack ni detalles en el cuerpo", async () => {
+    const error = new Error("se cayó la base");
+    error.name = "DatabaseError";
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = bookingErrorResponse(error, "PATCH /api/bot/bookings");
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      error: { code: "internal_error" },
+    });
+    expect(log).toHaveBeenCalledWith("[booking-error]", {
+      context: "PATCH /api/bot/bookings",
+      error: { name: "DatabaseError", message: "se cayó la base", code: undefined },
+    });
+    log.mockRestore();
   });
 });
 
