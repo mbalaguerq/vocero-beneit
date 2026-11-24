@@ -147,7 +147,6 @@ export async function runD1ReminderWorker(input: {
     .from(schema.template)
     .where(scoped(schema.template.organizationId, input.organizationId, eq(schema.template.id, input.template.templateId)))
     .limit(1);
-  console.error("D1_STAGE template", templates.length);
   const template = templates[0];
   if (!template || template.status !== "approved" || !hasD1Fallback(template.body)) {
     throw new ReminderError("invalid_template", "La plantilla D-1 debe estar aprobada e incluir las opciones 1 CONFIRMAR, 2 CANVIAR DATA y 3 CANCEL·LAR");
@@ -156,10 +155,8 @@ export async function runD1ReminderWorker(input: {
   const attemptedIds: string[] = [];
   let expiredLeasesClosed = false;
   for (let i = 0; i < D1_BATCH_SIZE; i++) {
-    console.error("D1_STAGE claim", i);
     const reminder = await claimD1Reminder(input.organizationId, now, attemptedIds);
     if (!reminder) {
-      console.error("D1_STAGE empty");
       break;
     }
     if (!expiredLeasesClosed) {
