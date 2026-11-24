@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PgDialect } from "drizzle-orm/pg-core";
 import type { SQL } from "drizzle-orm";
 import { applyReminderResponse, runD1ReminderWorker } from "@/server/agenda/reminders";
+import { cancelBooking } from "@/server/agenda/service";
 import { sendTemplate, TemplateError } from "@/server/whatsapp/templates";
 
 const fake = vi.hoisted(() => ({ execute: vi.fn(), select: vi.fn(), update: vi.fn() }));
@@ -135,5 +136,16 @@ describe("confirmación auditada", () => {
     expect(append.sql).toContain("confirmations");
     expect(append.params.join(" ")).toContain(dueAt.toISOString());
     expect(dialect.sqlToQuery(updates[0]!.condition).sql).toContain("@>");
+  });
+
+  it("no repite la cancelación externa cuando la respuesta ya fue aplicada", async () => {
+    selects.push(
+      [{ reminder: { ...reminder, status: "sent" }, booking: { ...target.booking, status: "cancelada" } }]
+    );
+
+    await expect(applyReminderResponse({
+      organizationId: "org_prueba", reminderId: reminder.id, response: "3",
+    })).resolves.toEqual({ action: "cancel", idempotent: true });
+    expect(cancelBooking).not.toHaveBeenCalled();
   });
 });

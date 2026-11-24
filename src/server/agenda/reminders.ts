@@ -266,9 +266,12 @@ export async function applyReminderResponse(input: {
     return { action, idempotent: inserted.length === 0 };
   }
   if (action === "cancel") {
-    await cancelBooking({ organizationId: input.organizationId, bookingId: row.booking.id });
-    await cancelBookingReminder(input.organizationId, row.booking.id);
-    return { action, idempotent: row.booking.status === "cancelada" };
+    const idempotent = row.booking.status === "cancelada";
+    if (!idempotent) {
+      await cancelBooking({ organizationId: input.organizationId, bookingId: row.booking.id });
+      await cancelBookingReminder(input.organizationId, row.booking.id);
+    }
+    return { action, idempotent };
   }
   if (action === "reschedule" && !input.newStartUtc) {
     return { action, idempotent: false, pending: true };
