@@ -183,6 +183,13 @@
       "when": 1795178850405,
       "tag": "0025_tranquil_human_torch",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1795433878319,
+      "tag": "0026_clever_lyja",
+      "breakpoints": true
     }
   ]
 }

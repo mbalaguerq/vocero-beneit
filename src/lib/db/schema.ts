@@ -901,6 +901,10 @@ export const bookingReminder = pgTable(
     dueAt: timestamp("due_at").notNull(),
     sentAt: timestamp("sent_at"),
     cancelledAt: timestamp("cancelled_at"),
+    confirmations: jsonb("confirmations")
+      .$type<{ dueAt: string; confirmedAt: string }[]>()
+      .notNull()
+      .default([]),
     lastError: text("last_error"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),

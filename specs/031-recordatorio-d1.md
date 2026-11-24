@@ -20,11 +20,12 @@ respostes desconegudes són no-op idempotent.
 
 La resposta `1 CONFIRMAR` reconeix la cita existent i no canvia el seu estat
 `agendada`. Quan entra per WhatsApp, el text queda persistit com a missatge de
-la conversa, però l'API `respond` no guarda una confirmació estructurada. Ni
-`booking.status` ni `booking_reminder.status` tenen aquest estat. Si cal
-consultar o auditar la confirmació de manera independent del missatge, s'ha de
-definir i migrar explícitament el model abans d'implementar-la; no es pot
-reutilitzar `sent` (lliurament) ni `realizada` (cita completada).
+la conversa i l'API `respond` afegeix una confirmació estructurada a
+`booking_reminder.confirmations` (JSONB), amb `dueAt` i `confirmedAt`. L'operació
+és idempotent per recordatori i venciment: una repetició retorna
+`idempotent: true` i no afegeix una segona confirmació. Ni `booking.status` ni
+`booking_reminder.status` tenen aquest estat; `sent` continua significant
+lliurament i `realizada` cita completada.
 
 `POST /api/bot/reminders/run` és la tanda operativa protegida per
 `BOT_API_KEY`; el cron li passa el `templateId` d'una plantilla aprovada. Per

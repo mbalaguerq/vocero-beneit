@@ -1,0 +1,1 @@
+ALTER TABLE "booking_reminder" ADD COLUMN "confirmations" jsonb DEFAULT '[]'::jsonb NOT NULL;

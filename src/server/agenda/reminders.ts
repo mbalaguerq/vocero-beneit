@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { countVariables } from "@/lib/templates";
@@ -6,7 +6,7 @@ import { scoped } from "@/lib/db/tenant";
 import { cancelBooking, rescheduleForConversation } from "@/server/agenda/service";
 import { getSettings } from "@/server/agenda/settings";
 import { timeInTz } from "@/lib/time/slots";
-import { sendTemplate } from "@/server/whatsapp/templates";
+import { sendTemplate, TemplateError } from "@/server/whatsapp/templates";
 
 export const D1_MAX_ATTEMPTS = 3;
 export const D1_LEASE_MS = 5 * 60_000;
@@ -95,7 +95,7 @@ export async function scheduleReminder(input: {
     target: [schema.bookingReminder.organizationId, schema.bookingReminder.bookingId, schema.bookingReminder.type],
     set: {
       dueAt, status: "pending", attempts: 0, leaseUntil: null,
-      sentAt: null, cancelledAt: null, lastError: null, updatedAt: new Date(),
+      sentAt: null, cancelledAt: null, lastError: null, confirmations: [], updatedAt: new Date(),
     },
   });
 }
@@ -110,14 +110,22 @@ export async function cancelBookingReminder(organizationId: string, bookingId: s
 }
 
 /** Claim atòmic amb FOR UPDATE SKIP LOCKED: dos workers no poden enviar la mateixa fila. */
-export async function claimD1Reminder(organizationId: string, now = new Date()): Promise<typeof schema.bookingReminder.$inferSelect | null> {
+export async function claimD1Reminder(
+  organizationId: string,
+  now = new Date(),
+  attemptedIds: string[] = []
+): Promise<typeof schema.bookingReminder.$inferSelect | null> {
   const leaseUntil = new Date(now.getTime() + D1_LEASE_MS);
+  const excludeAttempted = attemptedIds.length > 0
+    ? sql`AND id NOT IN (${sql.join(attemptedIds.map((id) => sql`${id}`), sql`, `)})`
+    : sql``;
   const result = await getDb().execute(sql`
     WITH candidate AS (
       SELECT id FROM booking_reminder
       WHERE organization_id = ${organizationId} AND type = 'd1'
-        AND (status IN ('pending', 'failed') OR (status = 'sending' AND lease_until < ${now}))
+        AND status = 'pending'
         AND due_at <= ${now} AND attempts < ${D1_MAX_ATTEMPTS}
+        ${excludeAttempted}
       ORDER BY due_at FOR UPDATE SKIP LOCKED LIMIT 1
     )
     UPDATE booking_reminder AS reminder
@@ -145,9 +153,20 @@ export async function runD1ReminderWorker(input: {
   }
   const settings = await getSettings(input.organizationId);
   const result: D1ReminderWorkerResult = { processed: 0, sent: 0, cancelled: 0, failed: 0 };
+  // Un lease caducado no prueba que Meta no recibiera el mensaje.
+  const expired = await getDb().update(schema.bookingReminder).set({
+    status: "failed", leaseUntil: null,
+    lastError: "Resultado del envío incierto; revisar Meta y CRM antes de reintentar",
+    updatedAt: now,
+  }).where(scoped(schema.bookingReminder.organizationId, input.organizationId, and(
+    eq(schema.bookingReminder.status, "sending"), lt(schema.bookingReminder.leaseUntil, now)
+  ))).returning({ id: schema.bookingReminder.id });
+  result.failed += expired.length;
+  const attemptedIds: string[] = [];
   for (let i = 0; i < D1_BATCH_SIZE; i++) {
-    const reminder = await claimD1Reminder(input.organizationId, now);
+    const reminder = await claimD1Reminder(input.organizationId, now, attemptedIds);
     if (!reminder) break;
+    attemptedIds.push(reminder.id);
     result.processed++;
     const rows = await getDb().select({ booking: schema.booking, contact: schema.contact, conversation: schema.conversation })
       .from(schema.booking)
@@ -171,10 +190,35 @@ export async function runD1ReminderWorker(input: {
         templateId: input.template.templateId,
         variables: reminderTemplateVariables(target.contact.name, target.booking.scheduledAt, settings.timezone, countVariables(template.body)),
       });
-      await getDb().update(schema.bookingReminder).set({ status: "sent", sentAt: now, leaseUntil: null, updatedAt: now }).where(eq(schema.bookingReminder.id, reminder.id));
-      result.sent++;
     } catch (error) {
-      await getDb().update(schema.bookingReminder).set({ status: reminder.attempts >= D1_MAX_ATTEMPTS ? "failed" : "pending", leaseUntil: null, lastError: error instanceof Error ? error.message.slice(0, 500) : "unknown_error", updatedAt: now }).where(eq(schema.bookingReminder.id, reminder.id));
+      // TemplateError ocurre antes de POST /messages. El resto puede ser posterior
+      // a la aceptación por Meta o a la persistencia local: no es reintentable.
+      const retryable = error instanceof TemplateError && reminder.attempts < D1_MAX_ATTEMPTS;
+      await getDb().update(schema.bookingReminder).set({
+        status: retryable ? "pending" : "failed", leaseUntil: null,
+        lastError: retryable && error instanceof Error
+          ? error.message.slice(0, 500)
+          : "Resultado del envío incierto; revisar Meta y CRM antes de reintentar",
+        updatedAt: now,
+      }).where(scoped(schema.bookingReminder.organizationId, reminder.organizationId, eq(schema.bookingReminder.id, reminder.id)));
+      result.failed++;
+      continue;
+    }
+    // Un fallo al marcar `sent` deja el lease: otro cron lo cerrará como incierto.
+    try {
+      const marked = await getDb().update(schema.bookingReminder).set({
+        status: "sent", sentAt: now, leaseUntil: null, updatedAt: now,
+      }).where(scoped(schema.bookingReminder.organizationId, reminder.organizationId, and(
+        eq(schema.bookingReminder.id, reminder.id), eq(schema.bookingReminder.status, "sending"),
+        eq(schema.bookingReminder.attempts, reminder.attempts), eq(schema.bookingReminder.dueAt, reminder.dueAt)
+      ))).returning({ id: schema.bookingReminder.id });
+      if (marked.length === 0) {
+        result.failed++;
+        continue;
+      }
+      result.sent++;
+    } catch {
+      // El lease queda intacto: la siguiente tanda lo cerrará como resultado incierto.
       result.failed++;
     }
   }
@@ -203,7 +247,24 @@ export async function applyReminderResponse(input: {
   if (!["sent", "cancelled"].includes(row.reminder.status)) {
     throw new ReminderError("not_ready", "El recordatorio todavía no se ha enviado");
   }
-  if (action === "confirm") return { action, idempotent: true };
+  if (action === "confirm") {
+    if (row.reminder.status !== "sent" || row.booking.status !== "agendada") {
+      throw new ReminderError("not_ready", "No hay una cita activa con recordatorio enviado que confirmar");
+    }
+    const dueAt = row.reminder.dueAt.toISOString();
+    const now = new Date();
+    const confirmation = JSON.stringify([{ dueAt, confirmedAt: now.toISOString() }]);
+    const alreadyConfirmed = JSON.stringify([{ dueAt }]);
+    const inserted = await getDb().update(schema.bookingReminder).set({
+      confirmations: sql`${schema.bookingReminder.confirmations} || ${confirmation}::jsonb`,
+      updatedAt: now,
+    }).where(scoped(schema.bookingReminder.organizationId, input.organizationId, and(
+      eq(schema.bookingReminder.id, row.reminder.id), eq(schema.bookingReminder.status, "sent"),
+      eq(schema.bookingReminder.dueAt, row.reminder.dueAt),
+      sql`NOT (${schema.bookingReminder.confirmations} @> ${alreadyConfirmed}::jsonb)`
+    ))).returning({ id: schema.bookingReminder.id });
+    return { action, idempotent: inserted.length === 0 };
+  }
   if (action === "cancel") {
     await cancelBooking({ organizationId: input.organizationId, bookingId: row.booking.id });
     await cancelBookingReminder(input.organizationId, row.booking.id);
