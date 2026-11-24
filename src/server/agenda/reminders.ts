@@ -10,7 +10,7 @@ import { sendTemplate, TemplateError } from "@/server/whatsapp/templates";
 import { isD1TestDataEnabled } from "@/lib/env";
 
 export const D1_MAX_ATTEMPTS = 3;
-export const D1_LEASE_MS = 5 * 60_000;
+export const D1_LEASE_MS = Number(process.env.D1_LEASE_MINUTES ?? 10) * 60_000;
 export const D1_BATCH_SIZE = 20;
 export const D1_REMINDER_CONTRACT = {
   type: "d1",
@@ -114,7 +114,8 @@ export async function cancelBookingReminder(organizationId: string, bookingId: s
 export async function claimD1Reminder(
   organizationId: string,
   now = new Date(),
-  attemptedIds: string[] = []
+  attemptedIds: string[] = [],
+  workerId = "d1-worker"
 ): Promise<typeof schema.bookingReminder.$inferSelect | null> {
   const leaseUntil = new Date(now.getTime() + D1_LEASE_MS);
   const excludeAttempted = attemptedIds.length > 0
@@ -131,7 +132,8 @@ export async function claimD1Reminder(
     )
     UPDATE booking_reminder AS reminder
     SET status = 'sending', attempts = reminder.attempts + 1,
-        lease_until = ${leaseUntil.toISOString()}, updated_at = ${now.toISOString()}
+        lease_until = ${leaseUntil.toISOString()}, claimed_at = ${now.toISOString()},
+        worker_id = ${workerId}, updated_at = ${now.toISOString()}
     FROM candidate WHERE reminder.id = candidate.id RETURNING reminder.*
   `);
   const row = (result as unknown as Record<string, unknown>[])[0];
@@ -154,33 +156,26 @@ export async function runD1ReminderWorker(input: {
   }
   const result: D1ReminderWorkerResult = { processed: 0, sent: 0, cancelled: 0, failed: 0 };
   const attemptedIds: string[] = [];
-  let expiredLeasesClosed = false;
+  const workerId = crypto.randomUUID();
   for (let i = 0; i < D1_BATCH_SIZE; i++) {
-    const reminder = await claimD1Reminder(input.organizationId, now, attemptedIds);
-    if (!reminder) {
-      if (!expiredLeasesClosed) {
-        const expired = await getDb().update(schema.bookingReminder).set({
-          status: "failed", leaseUntil: null,
-          lastError: "Resultado del envío incierto; revisar Meta y CRM antes de reintentar",
-          updatedAt: now,
-        }).where(scoped(schema.bookingReminder.organizationId, input.organizationId, and(
-          eq(schema.bookingReminder.status, "sending"), lt(schema.bookingReminder.leaseUntil, now)
-        ))).returning({ id: schema.bookingReminder.id });
-        result.failed += expired.length;
-        expiredLeasesClosed = true;
-      }
-      break;
-    }
-    if (!expiredLeasesClosed) {
-      const expired = await getDb().update(schema.bookingReminder).set({
-        status: "failed", leaseUntil: null,
-        lastError: "Resultado del envío incierto; revisar Meta y CRM antes de reintentar",
-        updatedAt: now,
+    if (i === 0) {
+      await getDb().update(schema.bookingReminder).set({
+        status: "sent", sentAt: now, leaseUntil: null, claimedAt: null, workerId: null, updatedAt: now,
       }).where(scoped(schema.bookingReminder.organizationId, input.organizationId, and(
-        eq(schema.bookingReminder.status, "sending"), lt(schema.bookingReminder.leaseUntil, now)
-      ))).returning({ id: schema.bookingReminder.id });
-      result.failed += expired.length;
-      expiredLeasesClosed = true;
+        eq(schema.bookingReminder.status, "sending"), lt(schema.bookingReminder.leaseUntil, now),
+        sql`${schema.bookingReminder.providerMessageId} is not null`
+      )));
+    }
+    const expired = i === 0 ? await getDb().update(schema.bookingReminder).set({
+      status: "pending", leaseUntil: null, claimedAt: null, workerId: null, updatedAt: now,
+    }).where(scoped(schema.bookingReminder.organizationId, input.organizationId, and(
+      eq(schema.bookingReminder.status, "sending"), lt(schema.bookingReminder.leaseUntil, now),
+      sql`${schema.bookingReminder.providerMessageId} is null`
+    ))).returning({ id: schema.bookingReminder.id }) : [];
+    result.failed += expired.length;
+    const reminder = await claimD1Reminder(input.organizationId, now, attemptedIds, workerId);
+    if (!reminder) {
+      break;
     }
     attemptedIds.push(reminder.id);
     result.processed++;
@@ -206,22 +201,30 @@ export async function runD1ReminderWorker(input: {
       continue;
     }
     try {
+      if (reminder.providerMessageId) {
+        await getDb().update(schema.bookingReminder).set({ status: "sent", sentAt: now, leaseUntil: null, updatedAt: now })
+          .where(scoped(schema.bookingReminder.organizationId, reminder.organizationId, eq(schema.bookingReminder.id, reminder.id)));
+        result.sent++;
+        continue;
+      }
       // The claimed row is the authoritative tenant for the rest of this
       // attempt. Keep settings and delivery on the same scoped organization
       // as the reminder, even if the cron's instance-org lookup is stale.
       const settings = await getSettings(reminder.organizationId);
-      await sendTemplate({
+      const delivery = await sendTemplate({
         organizationId: reminder.organizationId,
         conversationId: target.conversation.id,
         templateId: input.template.templateId,
         variables: reminderTemplateVariables(target.contact.name, target.booking.scheduledAt, settings.timezone, countVariables(template.body)),
       });
+      await getDb().update(schema.bookingReminder).set({ providerMessageId: delivery.providerMessageId })
+        .where(scoped(schema.bookingReminder.organizationId, reminder.organizationId, eq(schema.bookingReminder.id, reminder.id)));
     } catch (error) {
       // TemplateError ocurre antes de POST /messages. El resto puede ser posterior
       // a la aceptación por Meta o a la persistencia local: no es reintentable.
       const retryable = error instanceof TemplateError && reminder.attempts < D1_MAX_ATTEMPTS;
       await getDb().update(schema.bookingReminder).set({
-        status: retryable ? "pending" : "failed", leaseUntil: null,
+        status: retryable ? "pending" : "failed", leaseUntil: null, claimedAt: null, workerId: null,
         lastError: retryable && error instanceof Error
           ? error.message.slice(0, 500)
           : "Resultado del envío incierto; revisar Meta y CRM antes de reintentar",

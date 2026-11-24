@@ -101,7 +101,7 @@ describe("worker D-1", () => {
     fake.execute.mockResolvedValue([]);
 
     expect(await runD1ReminderWorker(options)).toEqual({ processed: 0, sent: 0, cancelled: 0, failed: 1 });
-    expect(updates.at(-1)?.values.status).toBe("failed");
+    expect(updates.at(-1)?.values.status).toBe("pending");
     expect(updates.at(-1)?.values.leaseUntil).toBeNull();
   });
 
@@ -120,7 +120,7 @@ describe("worker D-1", () => {
     selects.push([template], [target]);
     returning.push([]); // No hay leases caducados.
     fake.execute.mockResolvedValueOnce([reminder]);
-    vi.mocked(sendTemplate).mockResolvedValue({ messageId: "wamid_prueba" });
+    vi.mocked(sendTemplate).mockResolvedValue({ messageId: "msg_prueba", providerMessageId: "wamid_prueba" });
     fake.update.mockImplementationOnce(() => {
       const chain = {
         set: () => chain,

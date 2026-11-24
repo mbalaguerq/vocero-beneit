@@ -286,7 +286,7 @@ export async function sendTemplate(input: {
   conversationId: string;
   templateId: string;
   variables?: string[];
-}): Promise<{ messageId: string }> {
+}): Promise<{ messageId: string; providerMessageId: string }> {
   const db = getDb();
 
   const templates = await db
@@ -416,5 +416,5 @@ export async function sendTemplate(input: {
     },
   });
 
-  return { messageId: message.id };
+  return { messageId: message.id, providerMessageId: waMessageId };
 }
