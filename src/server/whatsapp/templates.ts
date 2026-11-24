@@ -18,6 +18,7 @@ import {
 import { callGraphSend, SendError } from "@/server/inbox/send";
 import { serializeMessage } from "@/server/inbox/ingest";
 import type { WebhookValue } from "@/server/inbox/webhook";
+import { isD1TestDataEnabled } from "@/lib/env";
 
 /** Errores tipados del servicio de plantillas → HTTP en la capa de API. */
 export class TemplateError extends Error {
@@ -338,7 +339,7 @@ export async function sendTemplate(input: {
     .limit(1);
   const row = rows[0];
   if (!row) throw new TemplateError("not_found", "Conversación no encontrada");
-  if (row.conversation.isTest) {
+  if (row.conversation.isTest && !isD1TestDataEnabled()) {
     // Aserción dura del sandbox (FR-031)
     throw new SendError(
       "sandbox_violation",
