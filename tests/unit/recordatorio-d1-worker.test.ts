@@ -132,6 +132,40 @@ describe("worker D-1", () => {
 
     expect(await runD1ReminderWorker(options)).toEqual({ processed: 1, sent: 0, cancelled: 0, failed: 1 });
   });
+
+  it("no reenvía una fila recuperada que ya conserva el provider message id", async () => {
+    selects.push([template], [target]);
+    returning.push([]);
+    fake.execute.mockResolvedValueOnce([
+      { ...reminder, providerMessageId: "wamid_ja_enviat" },
+    ]);
+
+    expect(await runD1ReminderWorker(options)).toEqual({
+      processed: 1, sent: 1, cancelled: 0, failed: 0,
+    });
+    expect(sendTemplate).not.toHaveBeenCalled();
+    expect(updates.at(-1)?.values.status).toBe("sent");
+  });
+
+  it("reclama amb lease, worker id i SKIP LOCKED", async () => {
+    selects.push([template], [target]);
+    returning.push([]);
+    let sawClaim = false;
+    fake.execute.mockImplementation(async (query: SQL) => {
+      const compiled = dialect.sqlToQuery(query);
+      if (compiled.sql.includes("FOR UPDATE SKIP LOCKED")) {
+        sawClaim = true;
+        expect(compiled.sql).toContain("claimed_at");
+        expect(compiled.sql).toContain("worker_id");
+        return [reminder];
+      }
+      return [reminder];
+    });
+    vi.mocked(sendTemplate).mockRejectedValue(new TemplateError("invalid", "preenvío"));
+
+    await runD1ReminderWorker(options);
+    expect(sawClaim).toBe(true);
+  });
 });
 
 describe("confirmación auditada", () => {
