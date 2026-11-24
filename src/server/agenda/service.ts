@@ -343,7 +343,7 @@ export async function rescheduleBooking(input: {
       timezone: settings.timezone,
     });
   });
-  if (next.conversationId && !next.isTest) {
+  if (next.conversationId && (!next.isTest || isD1TestDataEnabled())) {
     await scheduleReminder({
       organizationId: input.organizationId,
       bookingId: next.id,
