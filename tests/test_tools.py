@@ -73,7 +73,11 @@ async def test_book_acepta_slot_ofrecido_epoch_exacto(runtime_y_ctx, respx_mock)
     assert result["ok"] is True
     assert runtime.booked is True
     body = json.loads(bookings.calls[0].request.content)
-    assert body == {"conversationId": CRM_CONV_ID, "startUtc": SLOT_ISO}
+    assert body == {
+        "conversationId": CRM_CONV_ID,
+        "startUtc": SLOT_ISO,
+        "reminderConsent": False,
+    }
     # al reservar se limpian los ofrecidos
     assert await ctx.store.get_offered_slots(conv.id) == []
 
@@ -101,7 +105,13 @@ async def test_book_acepta_propuesta_manual_sin_slot_previamente_ofrecido(runtim
     )
     assert result["ok"] is True
     assert runtime.booked is True
-    assert bookings.call_count == 0
+    assert bookings.call_count == 1
+    booking_payload = json.loads(bookings.calls[0].request.content)
+    assert booking_payload == {
+        "conversationId": CRM_CONV_ID,
+        "startUtc": SLOT_ISO,
+        "reminderConsent": False,
+    }
     assert agenda.call_count == 1
     agenda_payload = json.loads(agenda.calls[0].request.content)
     assert agenda_payload["workType"] == "Petició de servei"

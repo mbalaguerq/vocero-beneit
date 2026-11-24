@@ -429,12 +429,16 @@ class CrmClient:
         return True if resultado is None else resultado
 
     async def create_booking(
-        self, conversation_id: str, start_utc: str
+        self, conversation_id: str, start_utc: str, *, reminder_consent: bool = False
     ) -> dict[str, Any]:
         resp = await self._request(
             "POST",
             "/api/bot/bookings",
-            json={"conversationId": conversation_id, "startUtc": start_utc},
+            json={
+                "conversationId": conversation_id,
+                "startUtc": start_utc,
+                "reminderConsent": reminder_consent,
+            },
         )
         if resp.status_code == 409:
             raise _booking_conflict(resp)
