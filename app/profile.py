@@ -118,7 +118,23 @@ def _herramientas(valor: Any) -> frozenset[str] | None:
     """Las claves que manda el CRM; sin lista (un CRM viejo), todas."""
     if not isinstance(valor, list):
         return None
-    return frozenset(str(v) for v in valor if isinstance(v, str))
+    aliases = {
+        "update_ficha": "ficha",
+        "create_agenda_request": "agendar",
+        "propose_slots": "agendar",
+        "book_session": "agendar",
+        "list_bookings": "agendar",
+        "cancel_session": "agendar",
+        "coordination_consent": "agendar",
+        "reschedule_session": "reprogramar",
+        "route_out": "salida",
+        "handoff": "escalar",
+    }
+    return frozenset(
+        aliases.get(v, v)
+        for v in valor
+        if isinstance(v, str)
+    )
 
 
 def profile_from_brief(path: Path, default_name: str) -> BusinessProfile | None:

@@ -29,6 +29,15 @@ def test_el_perfil_lee_role_y_tools():
     assert p.permite("ficha") and not p.permite("agendar")
 
 
+def test_el_perfil_normaliza_nombres_de_tools_de_agenda():
+    p = profile_from_payload(
+        {"profile": {"tools": ["propose_slots", "book_session", "reschedule_session"]}},
+        "Nea",
+    )
+    assert p.permite("agendar")
+    assert p.permite("reprogramar")
+
+
 def test_un_crm_que_no_manda_tools_enciende_todo():
     p = profile_from_payload({"profile": {"name": "Sofi"}}, "Nea")
     assert p.tools is None
