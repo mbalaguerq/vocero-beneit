@@ -45,6 +45,15 @@ try {
   run(runner, ["install", "--frozen-lockfile"]);
   run(runner, ["build"]);
 
+  // cPanel Passenger fa `require(startupFile)`. El runtime del repositori és
+  // ESM, però el paquet cPanel ha de poder carregar `server.js` com CommonJS
+  // encara que Passenger ignori la configuració de Startup File i el requereixi.
+  const packagedPackageJson = join(stageDir, "package.json");
+  const packagedPackage = JSON.parse(readFileSync(packagedPackageJson, "utf8"));
+  packagedPackage.type = "commonjs";
+  writeFileSync(packagedPackageJson, `${JSON.stringify(packagedPackage, null, 2)}\n`);
+  writeFileSync(join(stageDir, "server.js"), 'require("./server.cjs");\n');
+
   const manifestPath = join(stageDir, ".next-cpanel", "app-path-routes-manifest.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   if (Object.keys(manifest).length === 0) {
