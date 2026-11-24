@@ -7,6 +7,7 @@ import { cancelBooking, rescheduleForConversation } from "@/server/agenda/servic
 import { getSettings } from "@/server/agenda/settings";
 import { timeInTz } from "@/lib/time/slots";
 import { sendTemplate, TemplateError } from "@/server/whatsapp/templates";
+import { isD1TestDataEnabled } from "@/lib/env";
 
 export const D1_MAX_ATTEMPTS = 3;
 export const D1_LEASE_MS = 5 * 60_000;
@@ -178,8 +179,14 @@ export async function runD1ReminderWorker(input: {
       .innerJoin(schema.conversation, eq(schema.conversation.id, schema.booking.conversationId))
       .where(scoped(schema.booking.organizationId, reminder.organizationId, and(
         eq(schema.booking.id, reminder.bookingId), eq(schema.booking.kind, "session"),
-        eq(schema.booking.status, "agendada"), eq(schema.booking.isTest, false),
-        eq(schema.conversation.isTest, false), eq(schema.conversation.channel, "whatsapp")
+        eq(schema.booking.status, "agendada"),
+        isD1TestDataEnabled()
+          ? eq(schema.conversation.channel, "whatsapp")
+          : and(
+              eq(schema.booking.isTest, false),
+              eq(schema.conversation.isTest, false),
+              eq(schema.conversation.channel, "whatsapp")
+            )
       ))).limit(1);
     const target = rows[0];
     if (!target) {

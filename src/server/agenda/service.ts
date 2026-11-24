@@ -25,6 +25,7 @@ import { ConnectorError } from "@/server/agenda/connectors/types";
 import { moveLeadToStage } from "@/server/leads/stage-history";
 import { publish } from "@/server/events/bus";
 import { cancelBookingReminder, scheduleReminder } from "@/server/agenda/reminders";
+import { isD1TestDataEnabled } from "@/lib/env";
 
 /**
  * 015 — Ciclo de vida de la cita y las dos reglas INNEGOCIABLES:
@@ -229,7 +230,7 @@ export async function createSessionBooking(input: {
 
   // Efectos secundarios: ninguno puede revertir la cita.
   const delivered = await deliverMeeting(booking, settings, contactName);
-  if (input.conversationId && !isTest) {
+  if (input.conversationId && (!isTest || isD1TestDataEnabled())) {
     await scheduleReminder({
       organizationId: input.organizationId,
       bookingId: delivered.id,

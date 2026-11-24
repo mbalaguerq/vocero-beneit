@@ -54,6 +54,8 @@ export const envSchema = z.object({
   ALLOW_SIGNUP: z.string().optional(),
   AGENT_COALESCE_MS: z.coerce.number().int().min(0).default(6000),
   WA_MOCK_ENABLED: z.string().optional(),
+  // Només per validar D-1 amb dades del Laboratori fora de producció.
+  D1_INCLUDE_TEST_DATA: z.string().optional(),
   // API key de un cerebro externo que conduzca la conversación por /api/bot/*.
   // Sin ella, toda esa superficie responde 401.
   BOT_API_KEY: z.string().optional(),
@@ -145,6 +147,10 @@ export function isMockEnabled(): boolean {
     process.env.WA_MOCK_ENABLED === "true" &&
     process.env.NODE_ENV !== "production"
   );
+}
+
+export function isD1TestDataEnabled(): boolean {
+  return process.env.D1_INCLUDE_TEST_DATA === "true" && process.env.NODE_ENV !== "production";
 }
 
 /**
