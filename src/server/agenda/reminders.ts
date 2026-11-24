@@ -158,6 +158,17 @@ export async function runD1ReminderWorker(input: {
   for (let i = 0; i < D1_BATCH_SIZE; i++) {
     const reminder = await claimD1Reminder(input.organizationId, now, attemptedIds);
     if (!reminder) {
+      if (!expiredLeasesClosed) {
+        const expired = await getDb().update(schema.bookingReminder).set({
+          status: "failed", leaseUntil: null,
+          lastError: "Resultado del envío incierto; revisar Meta y CRM antes de reintentar",
+          updatedAt: now,
+        }).where(scoped(schema.bookingReminder.organizationId, input.organizationId, and(
+          eq(schema.bookingReminder.status, "sending"), lt(schema.bookingReminder.leaseUntil, now)
+        ))).returning({ id: schema.bookingReminder.id });
+        result.failed += expired.length;
+        expiredLeasesClosed = true;
+      }
       break;
     }
     if (!expiredLeasesClosed) {

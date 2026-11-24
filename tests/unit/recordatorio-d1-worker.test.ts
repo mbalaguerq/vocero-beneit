@@ -95,13 +95,14 @@ describe("worker D-1", () => {
     expect(updates.at(-1)?.values.status).toBe("pending");
   });
 
-  it("no toca leases vencidos cuando no hay recordatorios para procesar", async () => {
+  it("reclama leases vencidos aunque no haya recordatorios pendientes", async () => {
     selects.push([template]);
     returning.push([{ id: reminder.id }]);
     fake.execute.mockResolvedValue([]);
 
-    expect(await runD1ReminderWorker(options)).toEqual({ processed: 0, sent: 0, cancelled: 0, failed: 0 });
-    expect(updates).toHaveLength(0);
+    expect(await runD1ReminderWorker(options)).toEqual({ processed: 0, sent: 0, cancelled: 0, failed: 1 });
+    expect(updates.at(-1)?.values.status).toBe("failed");
+    expect(updates.at(-1)?.values.leaseUntil).toBeNull();
   });
 
   it("marca como terminal un error de resultado incierto de Meta", async () => {
