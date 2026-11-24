@@ -30,6 +30,7 @@ export async function POST(req: Request) {
     if (error instanceof ReminderError && error.code === "invalid_template") {
       return apiError(422, error.code, error.message);
     }
+    console.error("[d1-worker]", error instanceof Error ? error.stack ?? error.message : error);
     throw error;
   }
 }

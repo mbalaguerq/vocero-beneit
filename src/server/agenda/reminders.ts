@@ -124,13 +124,13 @@ export async function claimD1Reminder(
       SELECT id FROM booking_reminder
       WHERE organization_id = ${organizationId} AND type = 'd1'
         AND status = 'pending'
-        AND due_at <= ${now} AND attempts < ${D1_MAX_ATTEMPTS}
+        AND due_at <= ${now.toISOString()} AND attempts < ${D1_MAX_ATTEMPTS}
         ${excludeAttempted}
       ORDER BY due_at FOR UPDATE SKIP LOCKED LIMIT 1
     )
     UPDATE booking_reminder AS reminder
     SET status = 'sending', attempts = reminder.attempts + 1,
-        lease_until = ${leaseUntil}, updated_at = ${now}
+        lease_until = ${leaseUntil.toISOString()}, updated_at = ${now.toISOString()}
     FROM candidate WHERE reminder.id = candidate.id RETURNING reminder.*
   `);
   const row = (result as unknown as Record<string, unknown>[])[0];
