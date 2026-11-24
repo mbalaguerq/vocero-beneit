@@ -11,7 +11,8 @@ vi.mock("@/lib/db", async (importOriginal) => ({
   getDb: () => fake,
 }));
 vi.mock("@/server/agenda/service", () => ({ cancelBooking: vi.fn(), rescheduleForConversation: vi.fn() }));
-vi.mock("@/server/agenda/settings", () => ({ getSettings: async () => ({ timezone: "UTC" }) }));
+const getSettings = vi.hoisted(() => vi.fn(async () => ({ timezone: "UTC" })));
+vi.mock("@/server/agenda/settings", () => ({ getSettings }));
 vi.mock("@/server/whatsapp/templates", () => ({
   sendTemplate: vi.fn(),
   TemplateError: class TemplateError extends Error {},
@@ -50,6 +51,7 @@ beforeEach(() => {
   selects.length = 0;
   returning.length = 0;
   updates.length = 0;
+  getSettings.mockClear();
   fake.select.mockImplementation(() => selectChain(selects.shift() ?? []));
   fake.update.mockImplementation(() => {
     let values: Record<string, unknown>;
@@ -64,6 +66,16 @@ beforeEach(() => {
 });
 
 describe("worker D-1", () => {
+  it("retorna vacío sin actualizar leases si no hay recordatorios", async () => {
+    selects.push([template]);
+    fake.execute.mockResolvedValue([]);
+
+    await expect(runD1ReminderWorker(options)).resolves.toEqual({
+      processed: 0, sent: 0, cancelled: 0, failed: 0,
+    });
+    expect(getSettings).not.toHaveBeenCalled();
+  });
+
   it("no vuelve a reclamar una fila que falló en la misma tanda", async () => {
     selects.push([template], [target]);
     returning.push([]); // No hay leases caducados.
@@ -82,14 +94,13 @@ describe("worker D-1", () => {
     expect(updates.at(-1)?.values.status).toBe("pending");
   });
 
-  it("cierra un lease vencido como incierto sin reclamarlo", async () => {
+  it("no toca leases vencidos cuando no hay recordatorios para procesar", async () => {
     selects.push([template]);
     returning.push([{ id: reminder.id }]);
     fake.execute.mockResolvedValue([]);
 
-    expect(await runD1ReminderWorker(options)).toEqual({ processed: 0, sent: 0, cancelled: 0, failed: 1 });
-    expect(updates[0]?.values.status).toBe("failed");
-    expect(dialect.sqlToQuery(updates[0]!.condition).sql).toContain("lease_until");
+    expect(await runD1ReminderWorker(options)).toEqual({ processed: 0, sent: 0, cancelled: 0, failed: 0 });
+    expect(updates).toHaveLength(0);
   });
 
   it("marca como terminal un error de resultado incierto de Meta", async () => {

@@ -151,21 +151,23 @@ export async function runD1ReminderWorker(input: {
   if (!template || template.status !== "approved" || !hasD1Fallback(template.body)) {
     throw new ReminderError("invalid_template", "La plantilla D-1 debe estar aprobada e incluir las opciones 1 CONFIRMAR, 2 CANVIAR DATA y 3 CANCEL·LAR");
   }
-  const settings = await getSettings(input.organizationId);
   const result: D1ReminderWorkerResult = { processed: 0, sent: 0, cancelled: 0, failed: 0 };
-  // Un lease caducado no prueba que Meta no recibiera el mensaje.
-  const expired = await getDb().update(schema.bookingReminder).set({
-    status: "failed", leaseUntil: null,
-    lastError: "Resultado del envío incierto; revisar Meta y CRM antes de reintentar",
-    updatedAt: now,
-  }).where(scoped(schema.bookingReminder.organizationId, input.organizationId, and(
-    eq(schema.bookingReminder.status, "sending"), lt(schema.bookingReminder.leaseUntil, now)
-  ))).returning({ id: schema.bookingReminder.id });
-  result.failed += expired.length;
   const attemptedIds: string[] = [];
+  let expiredLeasesClosed = false;
   for (let i = 0; i < D1_BATCH_SIZE; i++) {
     const reminder = await claimD1Reminder(input.organizationId, now, attemptedIds);
     if (!reminder) break;
+    if (!expiredLeasesClosed) {
+      const expired = await getDb().update(schema.bookingReminder).set({
+        status: "failed", leaseUntil: null,
+        lastError: "Resultado del envío incierto; revisar Meta y CRM antes de reintentar",
+        updatedAt: now,
+      }).where(scoped(schema.bookingReminder.organizationId, input.organizationId, and(
+        eq(schema.bookingReminder.status, "sending"), lt(schema.bookingReminder.leaseUntil, now)
+      ))).returning({ id: schema.bookingReminder.id });
+      result.failed += expired.length;
+      expiredLeasesClosed = true;
+    }
     attemptedIds.push(reminder.id);
     result.processed++;
     const rows = await getDb().select({ booking: schema.booking, contact: schema.contact, conversation: schema.conversation })
@@ -184,6 +186,7 @@ export async function runD1ReminderWorker(input: {
       continue;
     }
     try {
+      const settings = await getSettings(input.organizationId);
       await sendTemplate({
         organizationId: reminder.organizationId,
         conversationId: target.conversation.id,
