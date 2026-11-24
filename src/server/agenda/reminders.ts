@@ -195,7 +195,10 @@ export async function runD1ReminderWorker(input: {
       continue;
     }
     try {
-      const settings = await getSettings(input.organizationId);
+      // The claimed row is the authoritative tenant for the rest of this
+      // attempt. Keep settings and delivery on the same scoped organization
+      // as the reminder, even if the cron's instance-org lookup is stale.
+      const settings = await getSettings(reminder.organizationId);
       await sendTemplate({
         organizationId: reminder.organizationId,
         conversationId: target.conversation.id,

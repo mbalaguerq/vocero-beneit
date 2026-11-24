@@ -90,6 +90,7 @@ describe("worker D-1", () => {
     vi.mocked(sendTemplate).mockRejectedValue(new TemplateError("invalid", "preenvío"));
 
     expect(await runD1ReminderWorker(options)).toEqual({ processed: 1, sent: 0, cancelled: 0, failed: 1 });
+    expect(getSettings).toHaveBeenCalledWith(reminder.organizationId);
     expect(fake.execute).toHaveBeenCalledTimes(2);
     expect(updates.at(-1)?.values.status).toBe("pending");
   });
