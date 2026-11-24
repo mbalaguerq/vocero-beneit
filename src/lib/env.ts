@@ -150,7 +150,12 @@ export function isMockEnabled(): boolean {
 }
 
 export function isD1TestDataEnabled(): boolean {
-  return process.env.D1_INCLUDE_TEST_DATA === "true" && process.env.NODE_ENV !== "production";
+  // El CRM de proves es desplega amb Next en mode production. El domini
+  // explícit és la barrera que impedeix activar dades de prova en producció.
+  return (
+    process.env.D1_INCLUDE_TEST_DATA === "true" &&
+    process.env.APP_BASE_URL === "https://vocero.instalabeneit.es"
+  );
 }
 
 /**
