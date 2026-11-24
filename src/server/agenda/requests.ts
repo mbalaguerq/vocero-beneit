@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
+import { isD1TestDataEnabled } from "@/lib/env";
 
 export type AgendaServiceRequestInput = {
   sourceEventId: string;
@@ -68,7 +69,7 @@ export async function createAgendaServiceRequest(
         eq(schema.conversation.organizationId, organizationId),
         eq(schema.conversation.id, input.conversationId),
         eq(schema.conversation.channel, "whatsapp"),
-        eq(schema.conversation.isTest, false)
+        ...(isD1TestDataEnabled() ? [] : [eq(schema.conversation.isTest, false)])
       )
     )
     .limit(1);
