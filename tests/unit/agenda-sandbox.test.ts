@@ -70,6 +70,7 @@ vi.mock("@/server/events/bus", () => ({ publish: () => {} }));
 
 const selectRows: unknown[][] = [];
 let lastInsert: Record<string, unknown> | null = null;
+let lastReminderInsert: Record<string, unknown> | null = null;
 /** La fila que devuelve un `update(...).returning()`. */
 let updatedRow: Record<string, unknown> = {};
 
@@ -85,7 +86,10 @@ vi.mock("@/lib/db", () => ({
     select: () => chain(selectRows.shift() ?? []),
     insert: () => ({
       values: (v: Record<string, unknown>) => ({
-        onConflictDoUpdate: () => Promise.resolve(),
+        onConflictDoUpdate: () => {
+          if (v.type === "d1") lastReminderInsert = v;
+          return Promise.resolve();
+        },
         returning: () => {
           lastInsert = v;
           return Promise.resolve([
@@ -141,6 +145,7 @@ describe("una cita del Laboratorio jamás llega al proveedor", () => {
   beforeEach(() => {
     selectRows.length = 0;
     lastInsert = null;
+    lastReminderInsert = null;
     updatedRow = { ...CITA_DE_PRUEBA };
     createMeeting.mockClear();
     updateMeeting.mockClear();
@@ -181,6 +186,33 @@ describe("una cita del Laboratorio jamás llega al proveedor", () => {
 
     expect(updateMeeting).not.toHaveBeenCalled();
     expect(bindConnector).not.toHaveBeenCalled();
+  });
+
+  it("al REPROGRAMAR una cita real persiste el reminder amb Dates serialitzables", async () => {
+    const { rescheduleForConversation } = await import("@/server/agenda/service");
+    const target = {
+      ...CITA_DE_PRUEBA,
+      id: "bk_real",
+      conversationId: "cv_real",
+      isTest: false,
+      externalRef: "zoom_real",
+    };
+    updatedRow = target;
+    selectRows.push([{ contactId: "ct_1" }], [target], [target]);
+
+    await rescheduleForConversation({
+      organizationId: "org_1",
+      conversationId: "cv_real",
+      startUtc: SLOT,
+    });
+
+    expect(lastReminderInsert).toMatchObject({
+      organizationId: "org_1",
+      bookingId: "bk_real",
+      type: "d1",
+    });
+    expect(lastReminderInsert?.dueAt).toBeInstanceOf(Date);
+    expect(updateMeeting).toHaveBeenCalledOnce();
   });
 
   it("al CANCELAR: no se borra nada en el proveedor", async () => {
