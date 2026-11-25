@@ -164,7 +164,7 @@ export async function runD1ReminderWorker(input: {
         status: "sent", sentAt: now, leaseUntil: null, claimedAt: null, workerId: null, updatedAt: now,
       }).where(scoped(schema.bookingReminder.organizationId, input.organizationId, and(
         eq(schema.bookingReminder.status, "sending"),
-        sql`${schema.bookingReminder.leaseUntil} <= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')`,
+        sql`${schema.bookingReminder.leaseUntil} <= CURRENT_TIMESTAMP`,
         sql`${schema.bookingReminder.providerMessageId} is not null`
       )));
     }
@@ -172,7 +172,7 @@ export async function runD1ReminderWorker(input: {
       status: "pending", leaseUntil: null, claimedAt: null, workerId: null, updatedAt: now,
     }).where(scoped(schema.bookingReminder.organizationId, input.organizationId, and(
       eq(schema.bookingReminder.status, "sending"),
-      sql`${schema.bookingReminder.leaseUntil} <= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')`,
+      sql`${schema.bookingReminder.leaseUntil} <= CURRENT_TIMESTAMP`,
       sql`${schema.bookingReminder.providerMessageId} is null`
     ))).returning({ id: schema.bookingReminder.id }) : [];
     result.failed += expired.length;

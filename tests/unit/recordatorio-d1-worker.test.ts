@@ -105,7 +105,7 @@ describe("worker D-1", () => {
     expect(updates.at(-1)?.values.leaseUntil).toBeNull();
   });
 
-  it("comprova l'expiració amb el rellotge UTC de PostgreSQL", async () => {
+  it("comprova l'expiració amb el rellotge de PostgreSQL", async () => {
     selects.push([template]);
     returning.push([{ id: reminder.id }]);
     fake.execute.mockResolvedValue([]);
@@ -113,7 +113,7 @@ describe("worker D-1", () => {
     await runD1ReminderWorker(options);
 
     const condition = dialect.sqlToQuery(updates.at(-1)!.condition).sql;
-    expect(condition).toContain("CURRENT_TIMESTAMP AT TIME ZONE 'UTC'");
+    expect(condition).toContain("CURRENT_TIMESTAMP");
     expect(condition).toContain('"lease_until" <=');
   });
 
