@@ -105,6 +105,18 @@ describe("worker D-1", () => {
     expect(updates.at(-1)?.values.leaseUntil).toBeNull();
   });
 
+  it("comprova l'expiració amb el rellotge UTC de PostgreSQL", async () => {
+    selects.push([template]);
+    returning.push([{ id: reminder.id }]);
+    fake.execute.mockResolvedValue([]);
+
+    await runD1ReminderWorker(options);
+
+    const condition = dialect.sqlToQuery(updates.at(-1)!.condition).sql;
+    expect(condition).toContain("CURRENT_TIMESTAMP AT TIME ZONE 'UTC'");
+    expect(condition).toContain('"lease_until" <=');
+  });
+
   it("marca como terminal un error de resultado incierto de Meta", async () => {
     selects.push([template], [target]);
     returning.push([]);
@@ -145,6 +157,22 @@ describe("worker D-1", () => {
     });
     expect(sendTemplate).not.toHaveBeenCalled();
     expect(updates.at(-1)?.values.status).toBe("sent");
+  });
+
+  it("no deixa que un worker antic escrigui el provider id després del reclaim", async () => {
+    selects.push([template], [target]);
+    returning.push([]);
+    fake.execute.mockResolvedValueOnce([reminder]).mockResolvedValueOnce([]);
+    vi.mocked(sendTemplate).mockResolvedValue({ messageId: "msg_prueba", providerMessageId: "wamid_prueba" });
+
+    await runD1ReminderWorker(options);
+
+    const providerUpdate = updates.find((update) => "providerMessageId" in update.values);
+    expect(providerUpdate).toBeDefined();
+    const condition = dialect.sqlToQuery(providerUpdate!.condition).sql;
+    expect(condition).toContain('"status" =');
+    expect(condition).toContain('"attempts" =');
+    expect(condition).toContain('"worker_id" =');
   });
 
   it("reclama amb lease, worker id i SKIP LOCKED", async () => {

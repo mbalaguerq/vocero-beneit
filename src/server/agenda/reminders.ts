@@ -1,4 +1,4 @@
-import { and, eq, inArray, lt, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb, schema } from "@/lib/db";
 import { newId } from "@/lib/db/ids";
 import { countVariables } from "@/lib/templates";
@@ -96,7 +96,8 @@ export async function scheduleReminder(input: {
     target: [schema.bookingReminder.organizationId, schema.bookingReminder.bookingId, schema.bookingReminder.type],
     set: {
       dueAt, status: "pending", attempts: 0, leaseUntil: null,
-      sentAt: null, cancelledAt: null, lastError: null, confirmations: [], updatedAt: new Date(),
+      sentAt: null, cancelledAt: null, lastError: null, confirmations: [],
+      claimedAt: null, workerId: null, providerMessageId: null, updatedAt: new Date(),
     },
   });
 }
@@ -162,14 +163,16 @@ export async function runD1ReminderWorker(input: {
       await getDb().update(schema.bookingReminder).set({
         status: "sent", sentAt: now, leaseUntil: null, claimedAt: null, workerId: null, updatedAt: now,
       }).where(scoped(schema.bookingReminder.organizationId, input.organizationId, and(
-        eq(schema.bookingReminder.status, "sending"), lt(schema.bookingReminder.leaseUntil, now),
+        eq(schema.bookingReminder.status, "sending"),
+        sql`${schema.bookingReminder.leaseUntil} <= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')`,
         sql`${schema.bookingReminder.providerMessageId} is not null`
       )));
     }
     const expired = i === 0 ? await getDb().update(schema.bookingReminder).set({
       status: "pending", leaseUntil: null, claimedAt: null, workerId: null, updatedAt: now,
     }).where(scoped(schema.bookingReminder.organizationId, input.organizationId, and(
-      eq(schema.bookingReminder.status, "sending"), lt(schema.bookingReminder.leaseUntil, now),
+      eq(schema.bookingReminder.status, "sending"),
+      sql`${schema.bookingReminder.leaseUntil} <= (CURRENT_TIMESTAMP AT TIME ZONE 'UTC')`,
       sql`${schema.bookingReminder.providerMessageId} is null`
     ))).returning({ id: schema.bookingReminder.id }) : [];
     result.failed += expired.length;
@@ -218,7 +221,12 @@ export async function runD1ReminderWorker(input: {
         variables: reminderTemplateVariables(target.contact.name, target.booking.scheduledAt, settings.timezone, countVariables(template.body)),
       });
       await getDb().update(schema.bookingReminder).set({ providerMessageId: delivery.providerMessageId })
-        .where(scoped(schema.bookingReminder.organizationId, reminder.organizationId, eq(schema.bookingReminder.id, reminder.id)));
+        .where(scoped(schema.bookingReminder.organizationId, reminder.organizationId, and(
+          eq(schema.bookingReminder.id, reminder.id),
+          eq(schema.bookingReminder.status, "sending"),
+          eq(schema.bookingReminder.attempts, reminder.attempts),
+          eq(schema.bookingReminder.workerId, workerId),
+        )));
     } catch (error) {
       // TemplateError ocurre antes de POST /messages. El resto puede ser posterior
       // a la aceptación por Meta o a la persistencia local: no es reintentable.
