@@ -23,6 +23,10 @@ export const D1_REMINDER_CONTRACT = {
   fallback: "Respon 1 per CONFIRMAR, 2 per CANVIAR DATA o 3 per CANCEL·LAR.",
 } as const;
 
+export function expiredLeaseStatus(attempts: number): "pending" | "failed" {
+  return attempts >= D1_MAX_ATTEMPTS ? "failed" : "pending";
+}
+
 export type ReminderAction = "confirm" | "reschedule" | "cancel" | "handoff";
 export type D1ReminderTemplateConfig = { templateId: string; variables: string[] };
 export type D1ReminderWorkerResult = {
@@ -168,14 +172,21 @@ export async function runD1ReminderWorker(input: {
         sql`${schema.bookingReminder.providerMessageId} is not null`
       )));
     }
-    const expired = i === 0 ? await getDb().update(schema.bookingReminder).set({
-      status: "pending", leaseUntil: null, claimedAt: null, workerId: null, updatedAt: now,
-    }).where(scoped(schema.bookingReminder.organizationId, input.organizationId, and(
-      eq(schema.bookingReminder.status, "sending"),
-      sql`${schema.bookingReminder.leaseUntil} <= CURRENT_TIMESTAMP`,
-      sql`${schema.bookingReminder.providerMessageId} is null`
-    ))).returning({ id: schema.bookingReminder.id }) : [];
-    result.failed += expired.length;
+    const expired = i === 0 ? await getDb().execute(sql`
+      UPDATE booking_reminder AS reminder
+      SET status = CASE WHEN reminder.attempts >= ${D1_MAX_ATTEMPTS} THEN 'failed' ELSE 'pending' END,
+          lease_until = NULL, claimed_at = NULL, worker_id = NULL,
+          last_error = CASE WHEN reminder.attempts >= ${D1_MAX_ATTEMPTS}
+            THEN 'Lease caducat després del màxim d’intents; resultat d’enviament no confirmat'
+            ELSE reminder.last_error END,
+          updated_at = ${now.toISOString()}
+      WHERE reminder.organization_id = ${input.organizationId}
+        AND reminder.status = 'sending'
+        AND reminder.lease_until <= CURRENT_TIMESTAMP
+        AND reminder.provider_message_id IS NULL
+      RETURNING reminder.id, reminder.status
+    `) : [];
+    result.failed += (expired as unknown as { status: string }[]).filter((row) => row.status === "failed").length;
     const reminder = await claimD1Reminder(input.organizationId, now, attemptedIds, workerId);
     if (!reminder) {
       break;

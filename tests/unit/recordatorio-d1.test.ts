@@ -8,6 +8,7 @@ import {
   reminderTemplateVariables,
   reminderText,
   D1_BATCH_SIZE,
+  expiredLeaseStatus,
 } from "@/server/agenda/reminders";
 
 describe("recordatori D-1", () => {
@@ -41,6 +42,8 @@ describe("recordatori D-1", () => {
 
   it("limita els retries", () => {
     expect(D1_MAX_ATTEMPTS).toBe(3);
+    expect(expiredLeaseStatus(2)).toBe("pending");
+    expect(expiredLeaseStatus(3)).toBe("failed");
   });
 
   it("deriva nom, data i hora locals i retalla plantilles antigues", () => {
