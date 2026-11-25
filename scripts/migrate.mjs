@@ -7,6 +7,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 import path from "node:path";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const url = process.env.DATABASE_URL;
@@ -16,8 +17,15 @@ if (!url) {
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const migrationsFolder =
-  process.env.MIGRATIONS_DIR ?? path.join(here, "drizzle");
+const migrationsFolder = process.env.MIGRATIONS_DIR
+  ? path.resolve(process.env.MIGRATIONS_DIR)
+  : path.join(here, "..", "drizzle");
+const journalPath = path.join(migrationsFolder, "meta", "_journal.json");
+
+if (!existsSync(journalPath)) {
+  console.error(`[migrate] falta el journal de migraciones: ${journalPath}`);
+  process.exit(1);
+}
 
 const maxAttempts = 15;
 for (let attempt = 1; attempt <= maxAttempts; attempt++) {
